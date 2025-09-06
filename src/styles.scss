@@ -1,0 +1,21 @@
+/* You can add global styles to this file, and also import other style files */
+/* aumenta área de toque de botões pequenos em telas muito estreitas */
+@media (max-width: 575.98px) {
+  .btn-group-sm > .btn,
+  .btn.btn-sm {
+    padding: 0.5rem 0.75rem; /* melhora usabilidade no polegar */
+    font-size: 0.9rem;
+  }
+  .table td,
+  .table th {
+    vertical-align: middle;
+  }
+}
+
+/* previne zoom ao focar inputs num iOS */
+input[type="text"],
+input[type="email"],
+input[type="number"],
+input[type="tel"] {
+  font-size: 16px;
+}
