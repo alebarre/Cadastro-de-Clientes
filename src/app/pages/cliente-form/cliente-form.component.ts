@@ -1,5 +1,5 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, } from '@angular/common';
 import {
   FormArray,
   FormBuilder,
@@ -13,6 +13,7 @@ import { ClienteService } from '../../services/cliente.service';
 import { NotificationService } from '../../services/notification.service';
 import { ViaCepService } from '../../services/viacep.service';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
+import { MaskDirective } from '../../services/mask.directives';
 
 @Component({
   selector: 'app-cliente-form',
@@ -22,6 +23,7 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
     ReactiveFormsModule,
     RouterLink,
     ConfirmDialogComponent,
+    MaskDirective
   ],
   template: `
     <div class="card">
@@ -54,8 +56,13 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
               <div class="invalid-feedback">Email inválido.</div>
             </div>
             <div class="col-md-6">
+
               <label class="form-label">Telefone</label>
-              <input class="form-control" formControlName="telefone" />
+                <input class="form-control"
+                  formControlName="telefone"
+                  appMask="phoneBr"
+                  [maskSaveRaw]="true"
+                  placeholder="(11) 91234-5678" />
             </div>
           </div>
 
@@ -96,14 +103,14 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
                         aria-hidden="true"
                       ></span>
                     </label>
-                    <input
-                      class="form-control"
+                    <input class="form-control"
                       formControlName="cep"
+                      appMask="cep"
+                      [maskSaveRaw]="true"
                       (blur)="onCepBlur(i)"
                       (keyup.enter)="onCepBlur(i)"
-                      [ngClass]="{ 'is-invalid': isInvalidEndereco(i, 'cep') }"
-                      placeholder="00000-000"
-                    />
+                      [ngClass]="{'is-invalid': isInvalidEndereco(i, 'cep')}"
+                      placeholder="00000-000" />
                     <div class="invalid-feedback">
                       CEP inválido (ex.: 01001-000).
                     </div>
@@ -256,7 +263,7 @@ export class ClienteFormComponent implements OnInit {
     private svc: ClienteService,
     private notify: NotificationService,
     private viacep: ViaCepService
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.buildForm();
@@ -286,7 +293,8 @@ export class ClienteFormComponent implements OnInit {
       nome: ['', [Validators.required, Validators.minLength(3)]],
       email: ['', [Validators.required, Validators.email]],
       telefone: [''],
-      enderecos: this.fb.array([]),
+      cpf: ['', [Validators.pattern(/^\d{11}$/)]],  // armazena só dígitos (11)
+      enderecos: this.fb.array([])
     });
   }
 

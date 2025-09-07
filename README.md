@@ -39,3 +39,24 @@ Cada cliente pode ter **até 2 endereços**, com preenchimento automático via *
 
 ## 📂 Estrutura Simplificada
 
+---
+
+## 🔹 README.md final (com diagrama incluso)
+
+```markdown
+# 📋 Cadastro de Clientes (Angular Standalone + Bootstrap)
+
+...
+
+## 🗂️ Fluxo de Navegação
+
+```mermaid
+flowchart TD
+    A[Lista de Clientes] -->|Novo Cliente| B[Formulário de Cliente]
+    A -->|Ver| C[Card do Cliente]
+    C -->|Editar| B
+    A -->|Editar| B
+    A -->|Excluir| D{Confirmação}
+    D -->|Confirmado| E[Cliente Removido]
+
+
