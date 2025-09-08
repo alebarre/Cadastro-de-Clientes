@@ -1,7 +1,7 @@
 import { Component, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { ClienteService, ClienteSummary } from '../../services/cliente.service'; // << usa ClienteSummary
+import { ClienteService, ClienteSummary } from '../../services/cliente.service';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
 import { NotificationService } from '../../services/notification.service';
 
@@ -9,6 +9,50 @@ import { NotificationService } from '../../services/notification.service';
   selector: 'app-clientes-list',
   standalone: true,
   imports: [CommonModule, RouterLink, ConfirmDialogComponent],
+  styles: [
+    `
+      .minw-0 {
+        min-width: 0;
+      }
+      .break-any {
+        word-break: break-word;
+        overflow-wrap: anywhere;
+      }
+
+      /* Range md (768–991): fixar layout e evitar overflow sem esconder header */
+      @media (min-width: 768px) and (max-width: 991.98px) {
+        table.table {
+          table-layout: fixed;
+        }
+        thead th,
+        tbody td {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          vertical-align: middle;
+        }
+        /* Distribuição amigável para 3 colunas (Nome, Email, Ações) */
+        thead th.th-nome,
+        tbody td.td-nome {
+          width: 44%;
+        }
+        thead th.th-email,
+        tbody td.td-email {
+          width: 36%;
+        }
+        thead th.th-acoes,
+        tbody td.td-acoes {
+          width: 20%;
+        }
+      }
+
+      /* < md: liberar quebras livremente */
+      @media (max-width: 767.98px) {
+        .col-nowrap {
+          white-space: normal !important;
+        }
+      }
+    `,
+  ],
   template: `
     <div
       class="d-flex flex-column flex-sm-row justify-content-between gap-2 align-items-sm-center mb-3"
@@ -26,45 +70,51 @@ import { NotificationService } from '../../services/notification.service';
     </div>
 
     <div *ngIf="clientes.length" class="table-responsive">
-      <table class="table table-striped table-bordered align-middle">
+      <table class="table table-striped table-bordered align-middle w-100">
         <thead class="table-light">
           <tr>
-            <th>Nome</th>
-            <th class="d-none d-sm-table-cell">Email</th>
-            <th class="d-none d-md-table-cell">Telefone</th>
-            <th style="width:1%; white-space:nowrap;">Endereço (Cidade)</th>
-            <th style="width:1%; white-space:nowrap;">Ações</th>
+            <th class="th-nome">Nome</th>
+            <th class="th-email d-none d-md-table-cell">Email</th>
+            <th class="d-none d-lg-table-cell">Telefone</th>
+            <th class="d-none d-lg-table-cell">Cidades</th>
+            <th class="th-acoes col-nowrap">Ações</th>
           </tr>
         </thead>
+
         <tbody>
           <tr *ngFor="let c of clientes">
-            <td class="text-truncate" style="max-width: 220px;">
-              {{ c.nome }}
-            </td>
-            <td
-              class="d-none d-sm-table-cell text-truncate"
-              style="max-width: 260px;"
-            >
+            <td class="td-nome break-any text-truncate">{{ c.nome }}</td>
+
+            <!-- md+: Email visível -->
+            <td class="td-email d-none d-md-table-cell break-any text-truncate">
               {{ c.email }}
             </td>
-            <td class="d-none d-md-table-cell">{{ c.telefone || '-' }}</td>
-            <td class="text-truncate" style="max-width: 260px;">
-              {{ formatCidades(c.cidades) }}
+
+            <!-- lg+: Telefone e Cidades -->
+            <td class="d-none d-lg-table-cell break-any">
+              {{ c.telefone || '-' }}
             </td>
-            <td>
-              <div class="d-flex flex-wrap flex-sm-nowrap gap-1 w-100">
+            <td class="d-none d-lg-table-cell break-any text-truncate">
+              {{ formatCidades(c.cidades) || '-' }}
+            </td>
+
+            <td class="td-acoes minw-0">
+              <!-- até lg: botões podem quebrar; em lg+ ficam lado a lado -->
+              <div class="d-flex flex-wrap flex-lg-nowrap gap-1">
                 <a
                   [routerLink]="['/clientes', c.id, 'card']"
-                  class="btn btn-sm btn-outline-primary flex-fill flex-sm-grow-0 w-100 w-sm-auto"
-                  >Ver</a
+                  class="btn btn-sm btn-outline-primary flex-fill flex-lg-grow-0 w-100 w-lg-auto"
                 >
+                  Ver
+                </a>
                 <a
                   [routerLink]="['/clientes', c.id]"
-                  class="btn btn-sm btn-outline-secondary flex-fill flex-sm-grow-0 w-100 w-sm-auto"
-                  >Editar</a
+                  class="btn btn-sm btn-outline-secondary flex-fill flex-lg-grow-0 w-100 w-lg-auto"
                 >
+                  Editar
+                </a>
                 <button
-                  class="btn btn-sm btn-outline-danger flex-fill flex-sm-grow-0 w-100 w-sm-auto"
+                  class="btn btn-sm btn-outline-danger flex-fill flex-lg-grow-0 w-100 w-lg-auto"
                   (click)="pedirConfirmacaoExclusao(c)"
                 >
                   Excluir
@@ -94,7 +144,6 @@ import { NotificationService } from '../../services/notification.service';
   `,
 })
 export class ClientesListComponent {
-  // << troque Cliente[] por ClienteSummary[]
   clientes: ClienteSummary[] = [];
   clienteSelecionado?: ClienteSummary;
 
@@ -105,11 +154,11 @@ export class ClientesListComponent {
     private notify: NotificationService
   ) {
     this.svc.clientes$.subscribe((list) => (this.clientes = list));
-    this.svc.fetchAll().subscribe(); // garante carregar a lista
+    this.svc.fetchAll().subscribe();
   }
 
   formatCidades(cidades: string[] | undefined): string {
-    if (!cidades || !cidades.length) return '-';
+    if (!cidades || !cidades.length) return '';
     const unicas: string[] = [];
     for (const cid of cidades.map((s) => s.trim()).filter(Boolean)) {
       if (!unicas.includes(cid)) unicas.push(cid);
