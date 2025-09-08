@@ -1,11 +1,12 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
-import { CommonModule, } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import {
   FormArray,
   FormBuilder,
   FormGroup,
   ReactiveFormsModule,
   Validators,
+  AbstractControl,
 } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Cliente, Endereco } from '../../models/cliente.model';
@@ -13,6 +14,7 @@ import { ClienteService } from '../../services/cliente.service';
 import { NotificationService } from '../../services/notification.service';
 import { ViaCepService } from '../../services/viacep.service';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
+import { Subscription } from 'rxjs';
 import { MaskDirective } from '../../services/mask.directives';
 
 @Component({
@@ -23,7 +25,7 @@ import { MaskDirective } from '../../services/mask.directives';
     ReactiveFormsModule,
     RouterLink,
     ConfirmDialogComponent,
-    MaskDirective
+    MaskDirective,
   ],
   template: `
     <div class="card">
@@ -34,7 +36,7 @@ import { MaskDirective } from '../../services/mask.directives';
 
         <form [formGroup]="form" (ngSubmit)="salvar()" novalidate>
           <div class="row g-3">
-            <div class="col-md-6">
+            <div class="col-12 col-md-6">
               <label class="form-label">Nome</label>
               <input
                 class="form-control"
@@ -42,27 +44,58 @@ import { MaskDirective } from '../../services/mask.directives';
                 [ngClass]="{ 'is-invalid': isInvalid('nome') }"
               />
               <div class="invalid-feedback">
-                Informe um nome com ao menos 3 caracteres.
+                {{
+                  serverError('nome') ||
+                    'Informe um nome com ao menos 3 caracteres.'
+                }}
               </div>
             </div>
-            <div class="col-md-6">
+
+            <div class="col-12 col-md-6">
               <label class="form-label">Email</label>
               <input
                 class="form-control"
                 type="email"
                 formControlName="email"
+                autocomplete="email"
                 [ngClass]="{ 'is-invalid': isInvalid('email') }"
               />
-              <div class="invalid-feedback">Email inválido.</div>
+              <div class="invalid-feedback">
+                {{ serverError('email') || 'Email inválido.' }}
+              </div>
             </div>
-            <div class="col-md-6">
 
+            <div class="col-12 col-md-6">
               <label class="form-label">Telefone</label>
-                <input class="form-control"
-                  formControlName="telefone"
-                  appMask="phoneBr"
-                  [maskSaveRaw]="true"
-                  placeholder="(11) 91234-5678" />
+              <input
+                class="form-control"
+                formControlName="telefone"
+                appMask="phoneBr"
+                [maskSaveRaw]="true"
+                placeholder="(11) 91234-5678"
+                [ngClass]="{ 'is-invalid': isInvalid('telefone') }"
+              />
+              <div class="invalid-feedback">
+                {{
+                  serverError('telefone') ||
+                    'Telefone deve ter 10 ou 11 dígitos.'
+                }}
+              </div>
+            </div>
+
+            <div class="col-12 col-md-6">
+              <label class="form-label">CPF (opcional)</label>
+              <input
+                class="form-control"
+                formControlName="cpf"
+                appMask="cpf"
+                [maskSaveRaw]="true"
+                placeholder="000.000.000-00"
+                [ngClass]="{ 'is-invalid': isInvalid('cpf') }"
+              />
+              <div class="invalid-feedback">
+                {{ serverError('cpf') || 'CPF deve ter 11 dígitos.' }}
+              </div>
             </div>
           </div>
 
@@ -80,6 +113,9 @@ import { MaskDirective } from '../../services/mask.directives';
             >
               + Adicionar endereço
             </button>
+            <span *ngIf="enderecos.length >= 2" class="text-muted small"
+              >Máximo de 2 endereços.</span
+            >
           </div>
 
           <div formArrayName="enderecos">
@@ -91,7 +127,7 @@ import { MaskDirective } from '../../services/mask.directives';
               <div class="card-body">
                 <div class="row g-3">
                   <!-- 1) CEP -->
-                  <div class="col-md-3">
+                  <div class="col-12 col-sm-6 col-md-3">
                     <label
                       class="form-label d-flex align-items-center justify-content-between"
                     >
@@ -103,16 +139,22 @@ import { MaskDirective } from '../../services/mask.directives';
                         aria-hidden="true"
                       ></span>
                     </label>
-                    <input class="form-control"
+                    <input
+                      class="form-control"
                       formControlName="cep"
                       appMask="cep"
                       [maskSaveRaw]="true"
                       (blur)="onCepBlur(i)"
                       (keyup.enter)="onCepBlur(i)"
-                      [ngClass]="{'is-invalid': isInvalidEndereco(i, 'cep')}"
-                      placeholder="00000-000" />
+                      autocomplete="postal-code"
+                      [ngClass]="{ 'is-invalid': isInvalidEndereco(i, 'cep') }"
+                      placeholder="00000-000"
+                    />
                     <div class="invalid-feedback">
-                      CEP inválido (ex.: 01001-000).
+                      {{
+                        serverErrorEndereco(i, 'cep') ||
+                          'CEP inválido (8 dígitos).'
+                      }}
                     </div>
                     <div class="form-text">
                       Preencha o CEP para autocompletar o endereço.
@@ -120,7 +162,7 @@ import { MaskDirective } from '../../services/mask.directives';
                   </div>
 
                   <!-- 2) Logradouro -->
-                  <div class="col-md-6">
+                  <div class="col-12 col-md-6">
                     <label class="form-label">Logradouro</label>
                     <input
                       class="form-control"
@@ -129,15 +171,20 @@ import { MaskDirective } from '../../services/mask.directives';
                         'is-invalid': isInvalidEndereco(i, 'logradouro')
                       }"
                     />
-                    <div class="invalid-feedback">Obrigatório.</div>
+                    <div class="invalid-feedback">
+                      {{
+                        serverErrorEndereco(i, 'logradouro') || 'Obrigatório.'
+                      }}
+                    </div>
                   </div>
 
                   <!-- 3) Número (somente números) -->
-                  <div class="col-md-3">
+                  <div class="col-6 col-md-3">
                     <label class="form-label">Número</label>
                     <input
                       class="form-control"
                       type="number"
+                      inputmode="numeric"
                       formControlName="numero"
                       [ngClass]="{
                         'is-invalid': isInvalidEndereco(i, 'numero')
@@ -145,18 +192,21 @@ import { MaskDirective } from '../../services/mask.directives';
                       oninput="this.value = this.value.replace(/[^0-9]/g, '')"
                     />
                     <div class="invalid-feedback">
-                      Somente números são permitidos.
+                      {{
+                        serverErrorEndereco(i, 'numero') ||
+                          'Somente números são permitidos.'
+                      }}
                     </div>
                   </div>
 
                   <!-- 4) Complemento -->
-                  <div class="col-md-4">
+                  <div class="col-12 col-md-4">
                     <label class="form-label">Complemento</label>
                     <input class="form-control" formControlName="complemento" />
                   </div>
 
                   <!-- 5) Bairro -->
-                  <div class="col-md-4">
+                  <div class="col-12 col-md-4">
                     <label class="form-label">Bairro</label>
                     <input
                       class="form-control"
@@ -165,11 +215,13 @@ import { MaskDirective } from '../../services/mask.directives';
                         'is-invalid': isInvalidEndereco(i, 'bairro')
                       }"
                     />
-                    <div class="invalid-feedback">Obrigatório.</div>
+                    <div class="invalid-feedback">
+                      {{ serverErrorEndereco(i, 'bairro') || 'Obrigatório.' }}
+                    </div>
                   </div>
 
                   <!-- 6) Cidade -->
-                  <div class="col-md-3">
+                  <div class="col-8 col-md-3">
                     <label class="form-label">Cidade</label>
                     <input
                       class="form-control"
@@ -178,19 +230,24 @@ import { MaskDirective } from '../../services/mask.directives';
                         'is-invalid': isInvalidEndereco(i, 'cidade')
                       }"
                     />
-                    <div class="invalid-feedback">Obrigatório.</div>
+                    <div class="invalid-feedback">
+                      {{ serverErrorEndereco(i, 'cidade') || 'Obrigatório.' }}
+                    </div>
                   </div>
 
                   <!-- 7) UF -->
-                  <div class="col-md-1">
+                  <div class="col-4 col-md-1">
                     <label class="form-label">UF</label>
                     <input
                       class="form-control text-uppercase"
                       maxlength="2"
                       formControlName="uf"
+                      autocapitalize="characters"
                       [ngClass]="{ 'is-invalid': isInvalidEndereco(i, 'uf') }"
                     />
-                    <div class="invalid-feedback">UF (2 letras).</div>
+                    <div class="invalid-feedback">
+                      {{ serverErrorEndereco(i, 'uf') || 'UF (2 letras).' }}
+                    </div>
                   </div>
                 </div>
 
@@ -227,7 +284,7 @@ import { MaskDirective } from '../../services/mask.directives';
       </div>
     </div>
 
-    <!-- Modal de confirmação para remover ENDEREÇO -->
+    <!-- Modal confirmação (remover endereço) -->
     <app-confirm-dialog
       [title]="'Remover endereço'"
       [confirmText]="'Remover'"
@@ -248,10 +305,12 @@ import { MaskDirective } from '../../services/mask.directives';
 })
 export class ClienteFormComponent implements OnInit {
   form!: FormGroup;
-  editingId: string | null = null;
+  editingId: number | null = null;
 
   loadingCep: boolean[] = [];
   indexEnderecoParaRemover: number | null = null;
+
+  private subs: Subscription[] = [];
 
   @ViewChild('confirmRemoveEndereco')
   confirmDialogEndereco!: ConfirmDialogComponent;
@@ -263,28 +322,46 @@ export class ClienteFormComponent implements OnInit {
     private svc: ClienteService,
     private notify: NotificationService,
     private viacep: ViaCepService
-  ) { }
+  ) {}
 
   ngOnInit(): void {
     this.buildForm();
-    const id = this.route.snapshot.paramMap.get('id');
-    if (id) {
-      const c = this.svc.getById(id);
-      if (c) {
-        this.editingId = id;
-        this.form.patchValue({
-          nome: c.nome,
-          email: c.email,
-          telefone: c.telefone ?? '',
-        });
-        c.enderecos.forEach((e) =>
-          this.enderecos.push(this.buildEnderecoGroup(e))
-        );
-        this.loadingCep = new Array(this.enderecos.length).fill(false);
-      }
+    // limpa erros do servidor ao editar QUALQUER campo
+    this.subs.push(
+      this.form.valueChanges.subscribe(() => this.clearAllServerErrors())
+    );
+
+    const idParam = this.route.snapshot.paramMap.get('id');
+    if (idParam) {
+      const id = Number(idParam);
+      this.editingId = id;
+
+      this.svc.getById(id).subscribe({
+        next: (c) => {
+          this.form.patchValue({
+            nome: c.nome,
+            email: c.email,
+            telefone: c.telefone ?? '',
+            cpf: c.cpf ?? '',
+          });
+          (c.enderecos || []).forEach((e) =>
+            this.enderecos.push(this.buildEnderecoGroup(e))
+          );
+          if (this.enderecos.length === 0) this.addEndereco();
+          this.loadingCep = new Array(this.enderecos.length).fill(false);
+        },
+        error: () => {
+          this.notify.error('Cliente não encontrado.');
+          this.router.navigate(['/clientes']);
+        },
+      });
     } else {
       this.addEndereco();
     }
+  }
+
+  ngOnDestroy(): void {
+    this.subs.forEach((s) => s.unsubscribe());
   }
 
   // ====== BUILDERS ======
@@ -292,15 +369,15 @@ export class ClienteFormComponent implements OnInit {
     this.form = this.fb.group({
       nome: ['', [Validators.required, Validators.minLength(3)]],
       email: ['', [Validators.required, Validators.email]],
-      telefone: [''],
-      cpf: ['', [Validators.pattern(/^\d{11}$/)]],  // armazena só dígitos (11)
-      enderecos: this.fb.array([])
+      telefone: ['', [Validators.pattern(/^\d{10,11}$/)]],
+      cpf: ['', [Validators.pattern(/^\d{11}$/)]],
+      enderecos: this.fb.array([]),
     });
   }
 
   buildEnderecoGroup(e?: Partial<Endereco>) {
     return this.fb.group({
-      id: [e?.id ?? crypto.randomUUID()],
+      id: [e?.id ?? null],
       logradouro: [e?.logradouro ?? '', Validators.required],
       numero: [
         e?.numero ?? '',
@@ -313,10 +390,7 @@ export class ClienteFormComponent implements OnInit {
         e?.uf ?? '',
         [Validators.required, Validators.maxLength(2), Validators.minLength(2)],
       ],
-      cep: [
-        e?.cep ?? '',
-        [Validators.required, Validators.pattern(/^\d{5}-?\d{3}$/)],
-      ],
+      cep: [e?.cep ?? '', [Validators.required, Validators.pattern(/^\d{8}$/)]],
     });
   }
 
@@ -326,15 +400,25 @@ export class ClienteFormComponent implements OnInit {
   }
 
   // ====== UI HELPERS ======
-  isInvalid(controlName: string): boolean {
-    const c = this.form.get(controlName);
+  isInvalid(path: string): boolean {
+    const c = this.resolveControl(path);
     return !!c && c.invalid && (c.touched || c.dirty);
   }
 
   isInvalidEndereco(index: number, controlName: keyof Endereco): boolean {
-    const group = this.enderecos.at(index) as FormGroup;
-    const c = group.get(controlName as string);
-    return !!c && c.invalid && (c.touched || c.dirty);
+    return this.isInvalid(`enderecos[${index}].${controlName as string}`);
+  }
+
+  serverError(path: string): string | null {
+    const c = this.resolveControl(path);
+    return (c?.errors as any)?.server ?? null;
+  }
+
+  serverErrorEndereco(
+    index: number,
+    controlName: keyof Endereco
+  ): string | null {
+    return this.serverError(`enderecos[${index}].${controlName as string}`);
   }
 
   // ====== CEP / ViaCEP ======
@@ -351,7 +435,7 @@ export class ClienteFormComponent implements OnInit {
     const g = this.enderecos.at(index) as FormGroup;
     const setIfEmpty = (ctrl: string, value?: string) => {
       const c = g.get(ctrl);
-      if (c && (!c.value || c.value.trim() === '') && value) {
+      if (c && (!c.value || String(c.value).trim() === '') && value) {
         c.patchValue(value);
         c.markAsDirty();
       }
@@ -359,7 +443,7 @@ export class ClienteFormComponent implements OnInit {
     setIfEmpty('logradouro', data.logradouro);
     setIfEmpty('bairro', data.bairro);
     setIfEmpty('cidade', data.localidade);
-    setIfEmpty('uf', data.uf);
+    setIfEmpty('uf', (data.uf || '').toUpperCase());
     setIfEmpty('complemento', data.complemento);
   }
 
@@ -368,14 +452,12 @@ export class ClienteFormComponent implements OnInit {
     const cepCtrl = g.get('cep');
     if (!cepCtrl) return;
 
-    const formatted = this.viacep.format(cepCtrl.value);
-    cepCtrl.patchValue(formatted, { emitEvent: false });
-
-    if (cepCtrl.invalid) return;
+    const digits = String(cepCtrl.value || '').replace(/\D/g, '');
+    if (!/^\d{8}$/.test(digits)) return;
 
     this.loadingCep[index] = true;
-    this.viacep.find(cepCtrl.value).subscribe(
-      (res) => {
+    this.viacep.find(digits).subscribe({
+      next: (res) => {
         this.loadingCep[index] = false;
         if (!res) {
           this.notify.warn('CEP não encontrado.');
@@ -383,11 +465,11 @@ export class ClienteFormComponent implements OnInit {
         }
         this.patchEnderecoFromCep(index, res);
       },
-      (_) => {
+      error: () => {
         this.loadingCep[index] = false;
         this.notify.error('Falha ao consultar o CEP.');
-      }
-    );
+      },
+    });
   }
 
   // ====== AÇÕES ======
@@ -399,7 +481,6 @@ export class ClienteFormComponent implements OnInit {
     this.enderecos.push(this.buildEnderecoGroup());
     this.loadingCep[this.enderecos.length - 1] = false;
 
-    // foco automático no CEP do novo endereço
     setTimeout(() => {
       const inputs = document.querySelectorAll<HTMLInputElement>(
         'input[formcontrolname="cep"]'
@@ -408,7 +489,6 @@ export class ClienteFormComponent implements OnInit {
     });
   }
 
-  // Confirmação de remoção de endereço
   pedirConfirmacaoRemoverEndereco(index: number) {
     this.indexEnderecoParaRemover = index;
     this.confirmDialogEndereco.open();
@@ -435,16 +515,101 @@ export class ClienteFormComponent implements OnInit {
     }
 
     const payload: Cliente = {
-      id: this.editingId ?? crypto.randomUUID(),
+      id: this.editingId ?? undefined,
       ...this.form.value,
     };
 
-    try {
-      this.svc.upsert(payload);
-      this.notify.success('Cliente salvo com sucesso!');
-      this.router.navigate(['/clientes']);
-    } catch {
-      this.notify.error('Ocorreu um erro ao salvar. Tente novamente.');
+    const req$ = this.editingId
+      ? this.svc.update(payload)
+      : this.svc.create(payload);
+
+    req$.subscribe({
+      next: () => {
+        this.notify.success('Cliente salvo com sucesso!');
+        this.router.navigate(['/clientes']);
+      },
+      error: (err) => {
+        // Esperado do back:
+        // {
+        //   status: 400,
+        //   error: "Validation Error",
+        //   message: "Campos inválidos",
+        //   timestamp: "...",
+        //   fieldErrors: { "telefone": "...", "enderecos[0].cidade": "..." }
+        // }
+        const fe = err?.error?.fieldErrors;
+        const msg = err?.error?.message || 'Ocorreu um erro ao salvar.';
+        if (fe && typeof fe === 'object') {
+          this.applyServerErrors(fe);
+        }
+        this.notify.error(msg);
+      },
+    });
+  }
+
+  // ====== SERVER-ERROR HELPERS ======
+  /** Define erro 'server' nos controles conforme o mapa de fieldErrors. Ex.: { 'telefone': 'msg', 'enderecos[0].cidade': 'msg' } */
+  private applyServerErrors(fieldErrors: Record<string, string>) {
+    Object.entries(fieldErrors).forEach(([path, message]) => {
+      const control = this.resolveControl(path);
+      if (control) {
+        const existing = control.errors || {};
+        control.setErrors({ ...existing, server: message || 'Campo inválido' });
+        control.markAsTouched();
+      }
+    });
+  }
+
+  /** Remove apenas os erros 'server' de todos os controles do form */
+  private clearAllServerErrors() {
+    const clear = (ctrl: AbstractControl | null | undefined): void => {
+      if (!ctrl) return;
+
+      // limpa a chave 'server' se existir, mantendo demais validações
+      const errs = ctrl.errors;
+      if (errs && Object.prototype.hasOwnProperty.call(errs, 'server')) {
+        const { server, ...rest } = errs as Record<string, any>;
+        ctrl.setErrors(Object.keys(rest).length ? rest : null);
+      }
+
+      // desce recursivamente
+      if (ctrl instanceof FormGroup) {
+        Object.values(ctrl.controls).forEach((child) => clear(child));
+      } else if (ctrl instanceof FormArray) {
+        ctrl.controls.forEach((child) => clear(child));
+      }
+      // FormControl: nada a fazer
+    };
+
+    clear(this.form);
+  }
+
+  /** Resolve caminho estilo 'email' ou 'enderecos[0].cidade' para o AbstractControl */
+  private resolveControl(path: string): AbstractControl | null {
+    // Suporta notação com colchetes e pontos.
+    // Ex.: 'enderecos[1].cep' -> ['enderecos', 1, 'cep']
+    const tokens: (string | number)[] = [];
+    const regex = /([^[.\]]+)|\[(\d+)\]/g;
+    let m: RegExpExecArray | null;
+    while ((m = regex.exec(path)) !== null) {
+      if (m[1] !== undefined) tokens.push(m[1]);
+      else if (m[2] !== undefined) tokens.push(Number(m[2]));
     }
+
+    let ctrl: AbstractControl | null = this.form;
+    for (const tk of tokens) {
+      if (!ctrl) return null;
+      if (typeof tk === 'number') {
+        // FormArray index
+        const fa = ctrl as unknown as {
+          at: (i: number) => AbstractControl | null;
+        };
+        ctrl = fa?.at ? fa.at(tk) : null;
+      } else {
+        // FormGroup control
+        ctrl = (ctrl as any).get ? (ctrl as any).get(tk) : null;
+      }
+    }
+    return ctrl;
   }
 }

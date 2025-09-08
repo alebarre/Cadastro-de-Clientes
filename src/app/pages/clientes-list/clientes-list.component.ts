@@ -1,8 +1,7 @@
 import { Component, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { ClienteService } from '../../services/cliente.service';
-import { Cliente } from '../../models/cliente.model';
+import { ClienteService, ClienteSummary } from '../../services/cliente.service'; // << usa ClienteSummary
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
 import { NotificationService } from '../../services/notification.service';
 
@@ -49,26 +48,21 @@ import { NotificationService } from '../../services/notification.service';
               {{ c.email }}
             </td>
             <td class="d-none d-md-table-cell">{{ c.telefone || '-' }}</td>
-
-            <!-- Coluna de cidades: mostra 1 cidade; se houver +1, mostra as 2 primeiras separadas por '|' -->
             <td class="text-truncate" style="max-width: 260px;">
-              {{ getCidadesResumo(c) }}
+              {{ formatCidades(c.cidades) }}
             </td>
-
             <td>
               <div class="d-flex flex-wrap flex-sm-nowrap gap-1 w-100">
                 <a
                   [routerLink]="['/clientes', c.id, 'card']"
                   class="btn btn-sm btn-outline-primary flex-fill flex-sm-grow-0 w-100 w-sm-auto"
+                  >Ver</a
                 >
-                  Ver
-                </a>
                 <a
                   [routerLink]="['/clientes', c.id]"
                   class="btn btn-sm btn-outline-secondary flex-fill flex-sm-grow-0 w-100 w-sm-auto"
+                  >Editar</a
                 >
-                  Editar
-                </a>
                 <button
                   class="btn btn-sm btn-outline-danger flex-fill flex-sm-grow-0 w-100 w-sm-auto"
                   (click)="pedirConfirmacaoExclusao(c)"
@@ -82,7 +76,6 @@ import { NotificationService } from '../../services/notification.service';
       </table>
     </div>
 
-    <!-- Modal de confirmação standalone -->
     <app-confirm-dialog
       [title]="'Confirmar Exclusão'"
       [confirmText]="'Excluir'"
@@ -101,8 +94,9 @@ import { NotificationService } from '../../services/notification.service';
   `,
 })
 export class ClientesListComponent {
-  clientes: Cliente[] = [];
-  clienteSelecionado?: Cliente;
+  // << troque Cliente[] por ClienteSummary[]
+  clientes: ClienteSummary[] = [];
+  clienteSelecionado?: ClienteSummary;
 
   @ViewChild(ConfirmDialogComponent) confirmDialog!: ConfirmDialogComponent;
 
@@ -111,35 +105,33 @@ export class ClientesListComponent {
     private notify: NotificationService
   ) {
     this.svc.clientes$.subscribe((list) => (this.clientes = list));
+    this.svc.fetchAll().subscribe(); // garante carregar a lista
   }
 
-  // Monta o resumo de cidades: 1 cidade ou as 2 primeiras separadas por '|'
-  getCidadesResumo(c: Cliente): string {
-    const cidades = (c.enderecos ?? [])
-      .map((e) => (e.cidade || '').trim())
-      .filter(Boolean);
-
-    // remove duplicadas mantendo ordem
+  formatCidades(cidades: string[] | undefined): string {
+    if (!cidades || !cidades.length) return '-';
     const unicas: string[] = [];
-    for (const cid of cidades) {
+    for (const cid of cidades.map((s) => s.trim()).filter(Boolean)) {
       if (!unicas.includes(cid)) unicas.push(cid);
+      if (unicas.length === 2) break;
     }
-
-    if (unicas.length === 0) return '-';
-    if (unicas.length === 1) return unicas[0];
-    return `${unicas[0]} | ${unicas[1]}`;
+    return unicas.join(' | ');
   }
 
-  pedirConfirmacaoExclusao(cliente: Cliente) {
+  pedirConfirmacaoExclusao(cliente: ClienteSummary) {
     this.clienteSelecionado = cliente;
     this.confirmDialog.open();
   }
 
   excluirConfirmado() {
     if (!this.clienteSelecionado) return;
-    this.svc.remove(this.clienteSelecionado.id);
-    this.notify.success('Cliente excluído com sucesso.');
-    this.clienteSelecionado = undefined;
+    this.svc.remove(this.clienteSelecionado.id).subscribe({
+      next: () => {
+        this.notify.success('Cliente excluído com sucesso.');
+        this.clienteSelecionado = undefined;
+      },
+      error: () => this.notify.error('Erro ao excluir.'),
+    });
   }
 
   cancelarExclusao() {

@@ -1,42 +1,72 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { BehaviorSubject, tap } from 'rxjs';
+// Update the import path below if your environment file is located elsewhere
+import { environment } from '../../environments/environment';
 import { Cliente } from '../models/cliente.model';
 
-const STORAGE_KEY = 'clientes_db';
+export interface ClienteSummary {
+  id: number;
+  nome: string;
+  email: string;
+  telefone?: string;
+  cidades: string[];
+}
 
 @Injectable({ providedIn: 'root' })
 export class ClienteService {
-  private _clientes$ = new BehaviorSubject<Cliente[]>(this.load());
+  private base = `${environment.apiUrl}/clientes`;
+  private _clientes$ = new BehaviorSubject<ClienteSummary[]>([]);
   clientes$ = this._clientes$.asObservable();
 
-  private load(): Cliente[] {
-    try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    } catch {
-      return [];
-    }
-  }
-  private persist(list: Cliente[]) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-    this._clientes$.next(list);
+  constructor(private http: HttpClient) {}
+
+  // LISTA (carrega no BehaviorSubject p/ sua lista)
+  fetchAll() {
+    return this.http
+      .get<ClienteSummary[]>(this.base)
+      .pipe(tap((list) => this._clientes$.next(list)));
   }
 
-  list(): Cliente[] {
-    return this._clientes$.value;
-  }
-  getById(id: string) {
-    return this.list().find((c) => c.id === id);
+  getById(id: string | number) {
+    return this.http.get<Cliente>(`${this.base}/${id}`);
   }
 
-  upsert(cliente: Cliente) {
-    const exists = this.getById(cliente.id);
-    const list = exists
-      ? this.list().map((c) => (c.id === cliente.id ? cliente : c))
-      : [...this.list(), cliente];
-    this.persist(list);
+  create(cliente: Cliente) {
+    return this.http
+      .post<Cliente>(this.base, this.toRequest(cliente))
+      .pipe(tap(() => this.fetchAll().subscribe()));
   }
 
-  remove(id: string) {
-    this.persist(this.list().filter((c) => c.id !== id));
+  update(cliente: Cliente) {
+    return this.http
+      .put<Cliente>(`${this.base}/${cliente.id}`, this.toRequest(cliente))
+      .pipe(tap(() => this.fetchAll().subscribe()));
+  }
+
+  remove(id: string | number) {
+    return this.http
+      .delete<void>(`${this.base}/${id}`)
+      .pipe(tap(() => this.fetchAll().subscribe()));
+  }
+
+  // mapeia para DTO do backend (ClienteRequest)
+  private toRequest(c: Cliente) {
+    return {
+      nome: c.nome,
+      email: c.email,
+      telefone: c.telefone ?? null,
+      cpf: c.cpf ?? null,
+      enderecos: (c.enderecos || []).map((e) => ({
+        id: e.id ?? null, // backend ignora no create; usa no update se quiser evoluir
+        logradouro: e.logradouro,
+        numero: e.numero,
+        complemento: e.complemento ?? null,
+        bairro: e.bairro,
+        cidade: e.cidade,
+        uf: (e.uf || '').toUpperCase(),
+        cep: (e.cep || '').replace(/\D/g, ''), // 8 dígitos
+      })),
+    };
   }
 }
