@@ -1,14 +1,10 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, tap } from 'rxjs';
+import { BehaviorSubject, tap, throwError } from 'rxjs';
 import { Router } from '@angular/router';
 import { environment } from '../../environments/environment';
-
-interface AuthResponse {
-  token: string;
-  expiresIn: number;
-  username: string;
-}
+import { AuthResponse } from '../interfaces/auth-response';
+import { RefreshResponse } from '../interfaces/refresh-reesponse';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -26,23 +22,63 @@ export class AuthService {
     return this.http
       .post<AuthResponse>(`${this.base}/login`, { username, password })
       .pipe(
-        tap((res) => {
-          const expMs = Date.now() + res.expiresIn * 1000;
-          localStorage.setItem('access_token', res.token);
-          localStorage.setItem('token_exp', String(expMs));
-          localStorage.setItem('username', res.username);
-          console.log('roles from token', this.rolesFromToken(res.token));
-          this._loggedIn$.next(true);
-        })
+        tap((res) =>
+          this.applyTokens(
+            res.accessToken,
+            res.expiresIn,
+            res.username,
+            res.refreshToken
+          )
+        )
+      );
+  }
+
+  refresh() {
+    const refreshToken = localStorage.getItem('refresh_token');
+    if (!refreshToken) return throwError(() => new Error('Sem refresh token'));
+    return this.http
+      .post<RefreshResponse>(`${this.base}/refresh`, { refreshToken })
+      .pipe(
+        tap((res) =>
+          this.applyTokens(
+            res.accessToken,
+            res.expiresIn,
+            localStorage.getItem('username') || '',
+            res.refreshToken
+          )
+        )
       );
   }
 
   logout() {
+    const refreshToken = localStorage.getItem('refresh_token');
+    if (refreshToken)
+      this.http
+        .post(`${this.base}/logout`, { refreshToken })
+        .subscribe({ next: () => {} });
     localStorage.removeItem('access_token');
     localStorage.removeItem('token_exp');
     localStorage.removeItem('username');
+    localStorage.removeItem('refresh_token');
+    this._roles$.next([]);
     this._loggedIn$.next(false);
     this.router.navigate(['/login']);
+  }
+
+  // ===== helpers já existentes + rolesFromToken padrão que combinamos =====
+  private applyTokens(
+    accessToken: string,
+    expiresIn: number,
+    username: string,
+    refreshToken: string
+  ) {
+    const expMs = Date.now() + expiresIn * 1000;
+    localStorage.setItem('access_token', accessToken);
+    localStorage.setItem('token_exp', String(expMs));
+    localStorage.setItem('username', username);
+    localStorage.setItem('refresh_token', refreshToken);
+    this._loggedIn$.next(true);
+    this._roles$.next(this.rolesFromToken(accessToken));
   }
 
   getToken(): string | null {
@@ -89,19 +125,24 @@ export class AuthService {
     return JSON.parse(json);
   }
 
-  public rolesFromToken(token: string): string[] {
+  //rolesFromToken() como padrão
+  rolesFromToken(token?: string): string[] {
+    const t = token || this.getToken();
+    if (!t) return [];
     try {
-      const p = this.decodeJwtPayload(token);
+      const payload = t.split('.')[1] || '';
+      const b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+      const pad = b64.length % 4 ? '='.repeat(4 - (b64.length % 4)) : '';
+      const json = atob(b64 + pad);
+      const p = JSON.parse(json);
       const claim = p['roles'];
       if (!claim) return [];
-      if (Array.isArray(claim)) return claim as string[];
-      if (typeof claim === 'string') {
-        return claim
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean);
-      }
-      return [];
+      return Array.isArray(claim)
+        ? claim
+        : String(claim)
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
     } catch {
       return [];
     }
