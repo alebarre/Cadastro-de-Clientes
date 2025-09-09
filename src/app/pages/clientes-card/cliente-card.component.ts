@@ -5,6 +5,7 @@ import { Observable, of, switchMap, map, catchError } from 'rxjs';
 import { Cliente } from '../../models/cliente.model';
 import { ClienteService } from '../../services/cliente.service';
 import { NotificationService } from '../../services/notification.service';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-cliente-card',
@@ -121,6 +122,9 @@ import { NotificationService } from '../../services/notification.service';
             >Voltar</a
           >
           <a
+            *ngIf="
+              auth.rolesFromToken(auth.getToken() || '').includes('ROLE_ADMIN')
+            "
             class="btn btn-primary flex-fill flex-sm-grow-0 w-100 w-sm-auto"
             [routerLink]="['/clientes', cliente.id]"
             >Editar</a
@@ -138,7 +142,8 @@ export class ClienteCardComponent {
     private route: ActivatedRoute,
     private router: Router,
     private svc: ClienteService,
-    private notify: NotificationService
+    private notify: NotificationService,
+    public auth: AuthService
   ) {
     this.cliente$ = this.route.paramMap.pipe(
       map((pm) => Number(pm.get('id'))),

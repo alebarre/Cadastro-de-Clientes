@@ -1,14 +1,19 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, ActivatedRoute, RouterLink } from '@angular/router';
-import { AuthService } from '../services/auth.service';
-import { NotificationService } from '../services/notification.service';
+import {
+  Router,
+  ActivatedRoute,
+  RouterLink,
+  RouterModule,
+} from '@angular/router';
+import { AuthService } from '../../services/auth.service';
+import { NotificationService } from '../../services/notification.service';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule],
   template: `
     <div
       class="d-flex justify-content-center align-items-center"
@@ -55,10 +60,9 @@ import { NotificationService } from '../services/notification.service';
             </button>
           </form>
 
-          <div class="mt-3 text-center">
-            <small class="text-muted"
-              >Use <code>admin / admin123</code> (seed de exemplo)</small
-            >
+          <div class="mt-3 d-flex justify-content-between">
+            <a [routerLink]="['/register']">Não tem cadastro? Clique aqui</a>
+            <a [routerLink]="['/forgot']">Esqueci a senha</a>
           </div>
         </div>
       </div>
@@ -83,7 +87,13 @@ export class LoginComponent {
       password: ['', Validators.required],
     });
     this.returnUrl =
-      this.route.snapshot.queryParamMap.get('returnUrl') || '/clientes';
+      this.route.snapshot.queryParamMap.get('returnUrl') ||
+      window.history.state?.returnUrl ||
+      '/clientes';
+    // no constructor do LoginComponent
+    if (this.auth.hasValidToken()) {
+      this.router.navigateByUrl('/clientes', { replaceUrl: true });
+    }
   }
 
   isInvalid(name: string) {
@@ -102,10 +112,17 @@ export class LoginComponent {
     this.auth
       .login(username!, password!)
       .subscribe({
+        // login.component.ts (dentro do subscribe do this.auth.login(...))
         next: () => {
           this.notify.success('Login realizado com sucesso!');
-          this.router.navigateByUrl(this.returnUrl);
+          const target = this.returnUrl || '/clientes';
+          // garante que a toast renderize e evita voltar pro /login no histórico
+          setTimeout(
+            () => this.router.navigateByUrl(target, { replaceUrl: true }),
+            0
+          );
         },
+
         error: (err) => {
           const msg = err?.error?.message || 'Falha no login.';
           this.notify.error(msg);

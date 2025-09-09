@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { ClienteService, ClienteSummary } from '../../services/cliente.service';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
 import { NotificationService } from '../../services/notification.service';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-clientes-list',
@@ -76,7 +77,7 @@ import { NotificationService } from '../../services/notification.service';
             <th class="th-nome">Nome</th>
             <th class="th-email d-none d-md-table-cell">Email</th>
             <th class="d-none d-lg-table-cell">Telefone</th>
-            <th class="d-none d-lg-table-cell">Cidades</th>
+            <th class="d-none d-lg-table-cell">Endereço(s)</th>
             <th class="th-acoes col-nowrap">Ações</th>
           </tr>
         </thead>
@@ -107,13 +108,25 @@ import { NotificationService } from '../../services/notification.service';
                 >
                   Ver
                 </a>
+
                 <a
+                  *ngIf="
+                    auth
+                      .rolesFromToken(auth.getToken() || '')
+                      .includes('ROLE_ADMIN')
+                  "
                   [routerLink]="['/clientes', c.id]"
                   class="btn btn-sm btn-outline-secondary flex-fill flex-lg-grow-0 w-100 w-lg-auto"
                 >
                   Editar
                 </a>
+
                 <button
+                  *ngIf="
+                    auth
+                      .rolesFromToken(auth.getToken() || '')
+                      .includes('ROLE_ADMIN')
+                  "
                   class="btn btn-sm btn-outline-danger flex-fill flex-lg-grow-0 w-100 w-lg-auto"
                   (click)="pedirConfirmacaoExclusao(c)"
                 >
@@ -151,7 +164,8 @@ export class ClientesListComponent {
 
   constructor(
     private svc: ClienteService,
-    private notify: NotificationService
+    private notify: NotificationService,
+    public auth: AuthService
   ) {
     this.svc.clientes$.subscribe((list) => (this.clientes = list));
     this.svc.fetchAll().subscribe();

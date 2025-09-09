@@ -26,6 +26,9 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
         auth.logout();
         router.navigate(['/login'], { queryParams: { returnUrl: router.url } });
       }
+      if (err.status === 403) {
+        notify.warn('Ação não permitida para seu perfil.');
+      }
       return throwError(() => err);
     })
   );
