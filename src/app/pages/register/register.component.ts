@@ -92,16 +92,13 @@ import { NotificationService } from '../../services/notification.service';
               >
                 Confirmar
               </button>
-              <button
-                class="btn btn-outline-secondary"
-                (click)="resend()"
-                [disabled]="loading"
-              >
-                Reenviar
+              <button class="btn btn-outline-secondary"
+                      (click)="resend()"
+                      [disabled]="loading || cooldown>0">
+                Reenviar <span *ngIf="cooldown>0">({{cooldown}}s)</span>
               </button>
             </div>
           </div>
-
           <div class="mt-3 text-center">
             <a [routerLink]="['/login']">Já tem conta? Entrar</a>
           </div>
@@ -116,6 +113,7 @@ export class RegisterComponent {
   code = '';
   codeControl;
   form;
+  cooldown = 0;
 
   constructor(
     private fb: FormBuilder,
@@ -191,14 +189,29 @@ export class RegisterComponent {
   }
 
   resend() {
+    if (this.cooldown > 0) return;
+    const email = this.email();
     this.loading = true;
-    // reaproveita o /register para reenviar código (mantém conta pending)
-    this.auth
-      .register(this.email(), 'RE-SEND-DUMMY')
-      .subscribe({
-        next: () => this.notify.success('Código reenviado.'),
-        error: () => this.notify.error('Falha ao reenviar.'),
-      })
-      .add(() => (this.loading = false));
+    this.auth.resendVerify(email).subscribe({
+      next: () => {
+        this.notify.success('Código reenviado.');
+        this.startCooldown(60); // deve bater com app.code.cooldown-seconds
+      },
+      error: (err) => {
+        const msg = err?.error?.message || 'Falha ao reenviar.';
+        this.notify.error(msg);
+        // se o back devolveu 429 com "Aguarde Xs", podemos extrair X por regex:
+        const m = /(\d+)s/.exec(msg);
+        if (m) this.startCooldown(Number(m[1]));
+      }
+    }).add(() => this.loading = false);
+  }
+
+  startCooldown(sec: number) {
+    this.cooldown = sec;
+    const iv = setInterval(() => {
+      this.cooldown--;
+      if (this.cooldown <= 0) clearInterval(iv);
+    }, 1000);
   }
 }

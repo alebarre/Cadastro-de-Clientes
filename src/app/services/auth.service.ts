@@ -55,7 +55,7 @@ export class AuthService {
     if (refreshToken)
       this.http
         .post(`${this.base}/logout`, { refreshToken })
-        .subscribe({ next: () => {} });
+        .subscribe({ next: () => { } });
     localStorage.removeItem('access_token');
     localStorage.removeItem('token_exp');
     localStorage.removeItem('username');
@@ -116,6 +116,14 @@ export class AuthService {
     });
   }
 
+  resendVerify(email: string) {
+    return this.http.post<{ message: string }>(`${this.base}/resend-verify`, { email });
+  }
+  resendReset(email: string) {
+    return this.http.post<{ message: string }>(`${this.base}/resend-reset`, { email });
+  }
+
+
   // ===== helpers o token JWT =====
   private decodeJwtPayload(token: string): any {
     const payload = token.split('.')[1] || '';
@@ -140,9 +148,9 @@ export class AuthService {
       return Array.isArray(claim)
         ? claim
         : String(claim)
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean);
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
     } catch {
       return [];
     }

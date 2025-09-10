@@ -77,12 +77,10 @@ import { NotificationService } from '../../services/notification.service';
               >
                 Confirmar
               </button>
-              <button
-                class="btn btn-outline-secondary"
-                (click)="resend()"
-                [disabled]="loading"
-              >
-                Reenviar
+              <button class="btn btn-outline-secondary"
+                      (click)="resend()"
+                      [disabled]="loading || cooldown>0">
+                Reenviar <span *ngIf="cooldown>0">({{ cooldown }}s)</span>
               </button>
             </div>
           </div>
@@ -100,6 +98,7 @@ export class ForgotComponent {
   phase: 'request' | 'code' = 'request';
   code = '';
   newPassword = '';
+  cooldown = 0; // em segundos
 
   form: ReturnType<FormBuilder['group']>;
 
@@ -160,14 +159,28 @@ export class ForgotComponent {
   }
 
   resend() {
+    if (this.cooldown > 0) return;
     const email = this.form.value.email!;
     this.loading = true;
-    this.auth
-      .forgot(email)
-      .subscribe({
-        next: () => this.notify.success('Código reenviado.'),
-        error: () => this.notify.error('Falha ao reenviar.'),
-      })
-      .add(() => (this.loading = false));
+    this.auth.resendReset(email).subscribe({
+      next: () => {
+        this.notify.success('Código reenviado.');
+        this.startCooldown(60); // mantenha em sincronia com app.code.cooldown-seconds
+      },
+      error: (err) => {
+        const msg = err?.error?.message || 'Falha ao reenviar.';
+        this.notify.error(msg);
+        const m = /(\d+)s/.exec(msg);
+        if (m) this.startCooldown(Number(m[1]));
+      }
+    }).add(() => this.loading = false);
+  }
+
+  startCooldown(sec: number) {
+    this.cooldown = sec;
+    const iv = setInterval(() => {
+      this.cooldown--;
+      if (this.cooldown <= 0) clearInterval(iv);
+    }, 1000);
   }
 }
