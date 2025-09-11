@@ -12,43 +12,22 @@ import { AuthService } from '../../services/auth.service';
   standalone: true,
   imports: [CommonModule, RouterLink],
   template: `
-    <div
-      class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-3"
-    >
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-3">
       <h3 class="mb-0">Ficha do Cliente</h3>
       <div class="d-flex flex-wrap gap-2">
-        <a
-          class="btn btn-outline-secondary flex-fill flex-sm-grow-0 w-100 w-sm-auto"
-          [routerLink]="['/clientes']"
-          >Voltar</a
-        >
-        <a
-          *ngIf="cliente$ | async as cliente"
-          class="btn btn-primary flex-fill flex-sm-grow-0 w-100 w-sm-auto"
-          [routerLink]="['/clientes', cliente.id]"
-          >Editar</a
-        >
+        <a class="btn btn-outline-secondary flex-fill flex-sm-grow-0 w-100 w-sm-auto" [routerLink]="['/clientes']">Voltar</a>
+        <a *ngIf="cliente$ | async as cliente" class="btn btn-primary flex-fill flex-sm-grow-0 w-100 w-sm-auto" [routerLink]="['/clientes', cliente.id]">Editar</a>
       </div>
     </div>
 
     <!-- estado carregando -->
-    <div
-      *ngIf="loading"
-      class="alert alert-light border d-flex align-items-center gap-2"
-    >
-      <span
-        class="spinner-border spinner-border-sm"
-        role="status"
-        aria-hidden="true"
-      ></span>
+    <div *ngIf="loading" class="alert alert-light border d-flex align-items-center gap-2">
+      <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
       Carregando...
     </div>
 
     <!-- não encontrado -->
-    <div
-      *ngIf="!loading && (cliente$ | async) === null"
-      class="alert alert-warning"
-    >
+    <div *ngIf="!loading && (cliente$ | async) === null" class="alert alert-warning">
       Cliente não encontrado.
     </div>
 
@@ -58,35 +37,54 @@ import { AuthService } from '../../services/auth.service';
         <div class="card-header bg-light">
           <strong class="d-block text-truncate">{{ cliente.nome }}</strong>
         </div>
+
         <div class="card-body">
+          <!-- Infos básicas -->
           <div class="row g-3">
-            <div class="col-12 col-md-4">
+            <div class="col-12 col-md-6">
               <div class="small text-muted">Email</div>
               <div class="text-truncate">{{ cliente.email }}</div>
             </div>
-            <div class="col-12 col-md-4">
+            <div class="col-12 col-md-6">
               <div class="small text-muted">Telefone</div>
               <div>{{ cliente.telefone || '-' }}</div>
-            </div>
-            <div class="col-12 col-md-4">
-              <div class="col" *ngFor="let m of cliente.modalidades; let i = index">
-                <div class="small text-muted">{{ m.nome }} - {{ m.valor | currency }}</div>
-              </div>
             </div>
           </div>
 
           <hr class="my-4" />
 
+          <!-- Modalidades -->
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <h5 class="mb-0">
+              Modalidades
+              <small class="text-muted">({{ cliente.modalidades?.length || 0 }}/5)</small>
+            </h5>
+          </div>
+
+          <div *ngIf="!(cliente.modalidades?.length) || cliente.modalidades?.length === 0" class="alert alert-info">
+            Nenhuma modalidade vinculada.
+          </div>
+
+          <div *ngIf="cliente.modalidades?.length" class="d-flex flex-wrap gap-2">
+            <span
+              *ngFor="let m of cliente.modalidades"
+              class="badge rounded-pill text-bg-light border"
+              [title]="m.descricao || ''">
+              <span class="fw-semibold">{{ m.descricao}} </span>
+              <span class="text-muted ms-1">— {{ m.valor | currency:'BRL':'symbol':'1.2-2' }}</span>
+            </span>
+          </div>
+
+          <hr class="my-4" />
+
+          <!-- Endereços -->
           <h5 class="mb-3">Endereços ({{ cliente.enderecos.length || 0 }})</h5>
 
           <div *ngIf="!cliente.enderecos?.length" class="alert alert-info">
             Nenhum endereço cadastrado.
           </div>
 
-          <div
-            class="row row-cols-1 row-cols-md-2 g-3"
-            *ngIf="cliente.enderecos?.length"
-          >
+          <div class="row row-cols-1 row-cols-md-2 g-3" *ngIf="cliente.enderecos?.length">
             <div class="col" *ngFor="let e of cliente.enderecos; let i = index">
               <div class="card h-100">
                 <div class="card-body">
@@ -95,8 +93,7 @@ import { AuthService } from '../../services/auth.service';
                     <span class="badge bg-secondary">{{ e.uf }}</span>
                   </div>
                   <p class="mb-1">
-                    <strong>{{ e.logradouro }}</strong
-                    >, {{ e.numero }}
+                    <strong>{{ e.logradouro }}</strong>, {{ e.numero }}
                     <span *ngIf="e.complemento"> - {{ e.complemento }}</span>
                   </p>
                   <p class="mb-1">{{ e.bairro }} - {{ e.cidade }}/{{ e.uf }}</p>
@@ -105,31 +102,22 @@ import { AuthService } from '../../services/auth.service';
                 <div class="card-footer bg-white">
                   <small class="text-muted">
                     ID:
-                    <span
-                      class="font-monospace text-truncate d-inline-block"
-                      style="max-width: 100%;"
-                      >{{ e.id }}</span
-                    >
+                    <span class="font-monospace text-truncate d-inline-block" style="max-width: 100%;">{{ e.id }}</span>
                   </small>
                 </div>
               </div>
             </div>
           </div>
         </div>
+
         <div class="card-footer d-flex flex-wrap flex-sm-nowrap gap-2">
+          <a class="btn btn-outline-secondary flex-fill flex-sm-grow-0 w-100 w-sm-auto" [routerLink]="['/clientes']">Voltar</a>
           <a
-            class="btn btn-outline-secondary flex-fill flex-sm-grow-0 w-100 w-sm-auto"
-            [routerLink]="['/clientes']"
-            >Voltar</a
-          >
-          <a
-            *ngIf="
-              auth.rolesFromToken(auth.getToken() || '').includes('ROLE_ADMIN')
-            "
+            *ngIf="auth.rolesFromToken(auth.getToken() || '').includes('ROLE_ADMIN')"
             class="btn btn-primary flex-fill flex-sm-grow-0 w-100 w-sm-auto"
-            [routerLink]="['/clientes', cliente.id]"
-            >Editar</a
-          >
+            [routerLink]="['/clientes', cliente.id]">
+            Editar
+          </a>
         </div>
       </div>
     </ng-container>

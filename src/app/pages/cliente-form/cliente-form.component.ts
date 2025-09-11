@@ -7,15 +7,25 @@ import {
   ReactiveFormsModule,
   Validators,
   AbstractControl,
+  ValidationErrors,
+  FormControl,
 } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Cliente, Endereco } from '../../models/cliente.model';
+import { Cliente, Endereco, Modalidade } from '../../models/cliente.model'; // <- certifique-se que Modalidade está aqui
 import { ClienteService } from '../../services/cliente.service';
 import { NotificationService } from '../../services/notification.service';
 import { ViaCepService } from '../../services/viacep.service';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
 import { Subscription } from 'rxjs';
 import { MaskDirective } from '../../services/mask.directives';
+
+/** Validador: limita quantidade máxima de itens selecionados em um array */
+function maxSelected(max: number) {
+  return (control: AbstractControl): ValidationErrors | null => {
+    const arr = (control.value as number[] | null) ?? [];
+    return arr.length > max ? { maxSelected: { max, current: arr.length } } : null;
+  };
+}
 
 @Component({
   selector: 'app-cliente-form',
@@ -267,6 +277,37 @@ import { MaskDirective } from '../../services/mask.directives';
             </div>
           </div>
 
+          <!-- ===== Modalidades (0..5) ===== -->
+          <hr class="my-4" />
+          <div class="d-flex align-items-center justify-content-between mb-1">
+            <h5 class="mb-0">Modalidades</h5>
+            <small class="text-muted">Selecionadas: {{ selectedCount }}/5</small>
+          </div>
+
+          <div class="mb-2">
+            <select
+              class="form-select"
+              multiple
+              size="6"
+              [ngClass]="{ 'is-invalid': isInvalid('modalidades') }"
+              (change)="onChangeModalidade($event)"
+            >
+              <option
+                *ngFor="let m of modalidades"
+                [value]="m.id"
+                [selected]="form.value.modalidades?.includes(m.id) || false"
+                [disabled]="selectedCount === LIMITE && !(form.value.modalidades?.includes(m.id))"
+                [title]="m.descricao || ''"
+              >
+                {{ m.nome }} — {{ m.descricao }}
+              </option>
+            </select>
+            <div class="invalid-feedback d-block" *ngIf="form.controls['modalidades'].hasError('maxSelected')">
+              Selecione no máximo {{ form.controls['modalidades'].getError('maxSelected').max }} modalidades.
+            </div>
+            <div class="form-text">Use Ctrl/Cmd para seleção múltipla.</div>
+          </div>
+
           <div class="mt-3 d-flex flex-wrap flex-sm-nowrap gap-2">
             <button
               class="btn btn-primary flex-fill flex-sm-grow-0 w-100 w-sm-auto"
@@ -309,6 +350,9 @@ export class ClienteFormComponent implements OnInit {
   loadingCep: boolean[] = [];
   indexEnderecoParaRemover: number | null = null;
 
+  modalidades: Modalidade[] = [];
+  readonly LIMITE = 5;
+
   private subs: Subscription[] = [];
 
   @ViewChild('confirmRemoveEndereco')
@@ -325,11 +369,16 @@ export class ClienteFormComponent implements OnInit {
 
   ngOnInit(): void {
     this.buildForm();
+
     // limpa erros do servidor ao editar QUALQUER campo
     this.subs.push(
       this.form.valueChanges.subscribe(() => this.clearAllServerErrors())
     );
 
+    // Carrega opções de modalidades
+    this.loadModalidades();
+
+    // Edição
     const idParam = this.route.snapshot.paramMap.get('id');
     if (idParam) {
       const id = Number(idParam);
@@ -341,6 +390,8 @@ export class ClienteFormComponent implements OnInit {
             nome: c.nome,
             email: c.email,
             telefone: c.telefone ?? '',
+            cpf: c.cpf ?? '',
+            modalidades: (c.modalidades ?? []).map(m => m.id) // ids para o select
           });
           (c.enderecos || []).forEach((e) =>
             this.enderecos.push(this.buildEnderecoGroup(e))
@@ -370,6 +421,7 @@ export class ClienteFormComponent implements OnInit {
       telefone: ['', [Validators.pattern(/^\d{10,11}$/)]],
       cpf: ['', [Validators.pattern(/^\d{11}$/)]],
       enderecos: this.fb.array([]),
+      modalidades: this.fb.control<number[]>([], [maxSelected(this.LIMITE)]),
     });
   }
 
@@ -395,6 +447,9 @@ export class ClienteFormComponent implements OnInit {
   // ====== GETTERS ======
   get enderecos(): FormArray {
     return this.form.get('enderecos') as FormArray;
+  }
+  get selectedCount(): number {
+    return this.form.value.modalidades?.length ?? 0;
   }
 
   // ====== UI HELPERS ======
@@ -470,6 +525,42 @@ export class ClienteFormComponent implements OnInit {
     });
   }
 
+  // ====== MODALIDADES ======
+  private loadModalidades() {
+    // Se preferir, injete um ModalidadeService dedicado.
+    this.svc.getModalidades().subscribe({
+      next: (list: Modalidade[]) => this.modalidades = list ?? [],
+      error: () => {
+        this.notify.error('Falha ao carregar modalidades.');
+        this.modalidades = [];
+      }
+    });
+  }
+
+  onChangeModalidade(event: Event) {
+    const select = event.target as HTMLSelectElement;
+    const selected = Array.from(select.selectedOptions).map(o => Number(o.value));
+
+    if (selected.length > this.LIMITE) {
+      // desfaz a última seleção
+      const last = Number(select.value);
+      const idx = selected.lastIndexOf(last);
+      if (idx !== -1) selected.splice(idx, 1);
+
+      (this.form.get('modalidades') as FormControl<number[]>)
+        .setValue(selected, { emitEvent: false });
+
+      // Sincroniza visualmente
+      Array.from(select.options).forEach(opt => {
+        opt.selected = selected.includes(Number(opt.value));
+      });
+
+      this.notify.warn(`Máximo de ${this.LIMITE} modalidades.`);
+    } else {
+      (this.form.get('modalidades') as FormControl<number[]>).setValue(selected);
+    }
+  }
+
   // ====== AÇÕES ======
   addEndereco() {
     if (this.enderecos.length >= 2) {
@@ -512,9 +603,11 @@ export class ClienteFormComponent implements OnInit {
       return;
     }
 
-    const payload: Cliente = {
-      id: this.editingId ?? undefined,
-      ...this.form.value,
+    // Monta payload conforme o DTO do backend
+    const { modalidades, ...rest } = this.form.value as any;
+    const payload: any = {
+      ...rest,
+      modalidadeIds: modalidades ?? [],  // <- novo campo para o back
     };
 
     const req$ = this.editingId
@@ -527,14 +620,6 @@ export class ClienteFormComponent implements OnInit {
         this.router.navigate(['/clientes']);
       },
       error: (err) => {
-        // Esperado do back:
-        // {
-        //   status: 400,
-        //   error: "Validation Error",
-        //   message: "Campos inválidos",
-        //   timestamp: "...",
-        //   fieldErrors: { "telefone": "...", "enderecos[0].cidade": "..." }
-        // }
         const fe = err?.error?.fieldErrors;
         const msg = err?.error?.message || 'Ocorreu um erro ao salvar.';
         if (fe && typeof fe === 'object') {
@@ -546,7 +631,7 @@ export class ClienteFormComponent implements OnInit {
   }
 
   // ====== SERVER-ERROR HELPERS ======
-  /** Define erro 'server' nos controles conforme o mapa de fieldErrors. Ex.: { 'telefone': 'msg', 'enderecos[0].cidade': 'msg' } */
+  /** Define erro 'server' nos controles conforme o mapa de fieldErrors. Ex.: { 'telefone': 'msg', 'enderecos[0].cidade': '...' } */
   private applyServerErrors(fieldErrors: Record<string, string>) {
     Object.entries(fieldErrors).forEach(([path, message]) => {
       const control = this.resolveControl(path);
@@ -563,20 +648,17 @@ export class ClienteFormComponent implements OnInit {
     const clear = (ctrl: AbstractControl | null | undefined): void => {
       if (!ctrl) return;
 
-      // limpa a chave 'server' se existir, mantendo demais validações
       const errs = ctrl.errors;
       if (errs && Object.prototype.hasOwnProperty.call(errs, 'server')) {
         const { server, ...rest } = errs as Record<string, any>;
         ctrl.setErrors(Object.keys(rest).length ? rest : null);
       }
 
-      // desce recursivamente
       if (ctrl instanceof FormGroup) {
         Object.values(ctrl.controls).forEach((child) => clear(child));
       } else if (ctrl instanceof FormArray) {
         ctrl.controls.forEach((child) => clear(child));
       }
-      // FormControl: nada a fazer
     };
 
     clear(this.form);
@@ -584,8 +666,6 @@ export class ClienteFormComponent implements OnInit {
 
   /** Resolve caminho estilo 'email' ou 'enderecos[0].cidade' para o AbstractControl */
   private resolveControl(path: string): AbstractControl | null {
-    // Suporta notação com colchetes e pontos.
-    // Ex.: 'enderecos[1].cep' -> ['enderecos', 1, 'cep']
     const tokens: (string | number)[] = [];
     const regex = /([^[.\]]+)|\[(\d+)\]/g;
     let m: RegExpExecArray | null;
@@ -598,13 +678,9 @@ export class ClienteFormComponent implements OnInit {
     for (const tk of tokens) {
       if (!ctrl) return null;
       if (typeof tk === 'number') {
-        // FormArray index
-        const fa = ctrl as unknown as {
-          at: (i: number) => AbstractControl | null;
-        };
+        const fa = ctrl as unknown as { at: (i: number) => AbstractControl | null };
         ctrl = fa?.at ? fa.at(tk) : null;
       } else {
-        // FormGroup control
         ctrl = (ctrl as any).get ? (ctrl as any).get(tk) : null;
       }
     }

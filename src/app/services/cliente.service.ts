@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, map, Observable, tap } from 'rxjs';
 // Update the import path below if your environment file is located elsewhere
 import { environment } from '../../environments/environment';
-import { Cliente, ClienteCard, ClienteRequest, ClienteSummary } from '../models/cliente.model';
+import { Cliente, ClienteCard, ClienteRequest, ClienteSummary, Modalidade } from '../models/cliente.model';
 
 @Injectable({ providedIn: 'root' })
 export class ClienteService {
@@ -12,6 +12,11 @@ export class ClienteService {
   clientes$ = this._clientes$.asObservable();
 
   constructor(private http: HttpClient) { }
+  /** Modalidades (para o combo do formulário) */
+  getModalidades(): Observable<Modalidade[]> {
+    return this.http.get<Modalidade[]>(`${environment.apiUrl}/modalidades`);
+  }
+
 
   /** Card (separado, caso seu back tenha /{id}/card) */
   getCard(id: number): Observable<ClienteCard> {
@@ -52,17 +57,22 @@ export class ClienteService {
     return this.http.get<Cliente>(`${this.base}/${id}`);
   }
 
-  /** Criar */
-  create(cliente: Cliente): Observable<Cliente> {
-    return this.http
-      .post<Cliente>(this.base, this.toRequest(cliente))
+  /** Criar – aceita Cliente ou ClienteRequest;
+   * se já vier com modalidadeIds, envia direto */
+  create(clienteOrRequest: Cliente | ClienteRequest): Observable<Cliente> {
+    const body: ClienteRequest = this.isRequest(clienteOrRequest)
+      ? clienteOrRequest as ClienteRequest
+      : this.toRequest(clienteOrRequest as Cliente);
+    return this.http.post<Cliente>(this.base, body)
       .pipe(tap(() => this.fetchAll().subscribe()));
   }
 
-  /** Atualizar */
-  update(id: string | number, cliente: Cliente): Observable<Cliente> {
-    return this.http
-      .put<Cliente>(`${this.base}/${id}`, this.toRequest(cliente))
+  /** Atualizar – idem ao create */
+  update(id: string | number, clienteOrRequest: Cliente | ClienteRequest): Observable<Cliente> {
+    const body: ClienteRequest = this.isRequest(clienteOrRequest)
+      ? clienteOrRequest as ClienteRequest
+      : this.toRequest(clienteOrRequest as Cliente);
+    return this.http.put<Cliente>(`${this.base}/${id}`, body)
       .pipe(tap(() => this.fetchAll().subscribe()));
   }
 
@@ -73,14 +83,21 @@ export class ClienteService {
   }
 
 
-  /** Converte o modelo completo para o payload esperado pelo backend */
+  /** Converte Cliente -> ClienteRequest (quando não vier pronto) */
   private toRequest(c: Cliente): ClienteRequest {
     return {
       nome: c.nome,
       email: c.email,
-      telefone: c.telefone,
+      telefone: c.telefone ?? null,
+      cpf: c.cpf ?? null,
       enderecos: c.enderecos || [],
-      modalidadesIds: (c.modalidades || []).map(m => m.id)
+      modalidadeIds: (c.modalidades || []).map(m => m.id),
     };
   }
+
+  /** Detecta se já é um DTO pronto (tem modalidadeIds) */
+  private isRequest(obj: any): obj is ClienteRequest {
+    return obj && Array.isArray(obj.modalidadeIds);
+  }
+
 }
