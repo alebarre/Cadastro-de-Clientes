@@ -288,7 +288,6 @@ import { MaskDirective } from '../../services/mask.directives';
     <app-confirm-dialog
       [title]="'Remover endereço'"
       [confirmText]="'Remover'"
-      [cancelText]="'Cancelar'"
       [variant]="'danger'"
       (onConfirm)="removerEnderecoConfirmado()"
       (onCancel)="cancelarRemocaoEndereco()"
@@ -322,7 +321,7 @@ export class ClienteFormComponent implements OnInit {
     private svc: ClienteService,
     private notify: NotificationService,
     private viacep: ViaCepService
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.buildForm();
@@ -342,7 +341,6 @@ export class ClienteFormComponent implements OnInit {
             nome: c.nome,
             email: c.email,
             telefone: c.telefone ?? '',
-            cpf: c.cpf ?? '',
           });
           (c.enderecos || []).forEach((e) =>
             this.enderecos.push(this.buildEnderecoGroup(e))
@@ -520,7 +518,7 @@ export class ClienteFormComponent implements OnInit {
     };
 
     const req$ = this.editingId
-      ? this.svc.update(payload)
+      ? this.svc.update(this.editingId, payload)
       : this.svc.create(payload);
 
     req$.subscribe({

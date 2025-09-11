@@ -13,7 +13,7 @@ export function passwordPolicyValidator(min: number = 8): ValidatorFn {
     const v = control.value || '';
     const errors: string[] = [];
 
-    if (v.length < min) errors.push(`mínimo de caracteres: ${min}`);
+    if (v.length < min) errors.push(`mín. caracteres: ${min}`);
     if (!/[A-Z]/.test(v)) errors.push('1 maiúscula');
     if (!/[a-z]/.test(v)) errors.push('1 minúscula');
     if (!/\d/.test(v)) errors.push('1 dígito');

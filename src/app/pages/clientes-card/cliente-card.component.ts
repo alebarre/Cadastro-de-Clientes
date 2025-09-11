@@ -69,8 +69,9 @@ import { AuthService } from '../../services/auth.service';
               <div>{{ cliente.telefone || '-' }}</div>
             </div>
             <div class="col-12 col-md-4">
-              <div class="small text-muted">ID</div>
-              <div class="font-monospace text-truncate">{{ cliente.id }}</div>
+              <div class="col" *ngFor="let m of cliente.modalidades; let i = index">
+                <div class="small text-muted">{{ m.nome }} - Valor {{ m.valor | currency }}</div>
+              </div>
             </div>
           </div>
 
