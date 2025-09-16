@@ -11,7 +11,6 @@ import { ToastsContainerComponent } from './shared/toast-container/toasts-contai
   template: `
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
       <div class="container">
-        <a class="navbar-brand" [routerLink]="['/']">ClientesApp</a>
         <div class="ms-auto d-flex gap-2">
           <a
             *ngIf="!loggedIn"

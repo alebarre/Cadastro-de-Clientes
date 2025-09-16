@@ -1,3 +1,4 @@
+// path: src/app/clientes/cliente-form.component.ts
 import { Component, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
@@ -11,12 +12,13 @@ import {
   FormControl,
 } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Cliente, Endereco, Modalidade } from '../../models/cliente.model'; // <- certifique-se que Modalidade está aqui
+import { Cliente, Endereco, Modalidade } from '../../models/cliente.model';
 import { ClienteService } from '../../services/cliente.service';
 import { NotificationService } from '../../services/notification.service';
 import { ViaCepService } from '../../services/viacep.service';
 import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dialog.component';
-import { Subscription } from 'rxjs';
+import { finalize, Subscription } from 'rxjs';
+import { CountriesUtil, Country } from '../../utils/countries-util';
 import { MaskDirective } from '../../services/mask.directives';
 
 /** Validador: limita quantidade máxima de itens selecionados em um array */
@@ -35,7 +37,7 @@ function maxSelected(max: number) {
     ReactiveFormsModule,
     RouterLink,
     ConfirmDialogComponent,
-    MaskDirective,
+    MaskDirective, // necessário para usar appMask nos inputs
   ],
   template: `
     <div class="card">
@@ -54,10 +56,7 @@ function maxSelected(max: number) {
                 [ngClass]="{ 'is-invalid': isInvalid('nome') }"
               />
               <div class="invalid-feedback">
-                {{
-                  serverError('nome') ||
-                    'Informe um nome com ao menos 3 caracteres.'
-                }}
+                {{ serverError('nome') || 'Informe um nome com ao menos 3 caracteres.' }}
               </div>
             </div>
 
@@ -86,10 +85,7 @@ function maxSelected(max: number) {
                 [ngClass]="{ 'is-invalid': isInvalid('telefone') }"
               />
               <div class="invalid-feedback">
-                {{
-                  serverError('telefone') ||
-                    'Telefone deve ter 10 ou 11 dígitos.'
-                }}
+                {{ serverError('telefone') || 'Telefone deve ter 10 ou 11 dígitos.' }}
               </div>
             </div>
 
@@ -111,9 +107,7 @@ function maxSelected(max: number) {
 
           <hr class="my-4" />
 
-          <div
-            class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-2 gap-2"
-          >
+          <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center mb-2 gap-2">
             <h5 class="mb-0">Endereços</h5>
             <button
               *ngIf="enderecos.length < 2"
@@ -123,31 +117,18 @@ function maxSelected(max: number) {
             >
               + Adicionar endereço
             </button>
-            <span *ngIf="enderecos.length >= 2" class="text-muted small"
-              >Máximo de 2 endereços.</span
-            >
+            <span *ngIf="enderecos.length >= 2" class="text-muted small">Máximo de 2 endereços.</span>
           </div>
 
           <div formArrayName="enderecos">
-            <div
-              class="card mb-3"
-              *ngFor="let e of enderecos.controls; let i = index"
-              [formGroupName]="i"
-            >
+            <div class="card mb-3" *ngFor="let e of enderecos.controls; let i = index" [formGroupName]="i">
               <div class="card-body">
                 <div class="row g-3">
                   <!-- 1) CEP -->
-                  <div class="col-12 col-sm-6 col-md-3">
-                    <label
-                      class="form-label d-flex align-items-center justify-content-between"
-                    >
+                  <div class="col-12 col-sm-4 col-md-2">
+                    <label class="form-label d-flex align-items-center justify-content-between">
                       <span>CEP</span>
-                      <span
-                        *ngIf="loadingCep[i]"
-                        class="spinner-border spinner-border-sm"
-                        role="status"
-                        aria-hidden="true"
-                      ></span>
+                      <span *ngIf="loadingCep[i]" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                     </label>
                     <input
                       class="form-control"
@@ -161,56 +142,42 @@ function maxSelected(max: number) {
                       placeholder="00000-000"
                     />
                     <div class="invalid-feedback">
-                      {{
-                        serverErrorEndereco(i, 'cep') ||
-                          'CEP inválido (8 dígitos).'
-                      }}
+                      {{ serverErrorEndereco(i, 'cep') || 'CEP inválido (8 dígitos).' }}
                     </div>
-                    <div class="form-text">
-                      Preencha o CEP para autocompletar o endereço.
-                    </div>
+                    <div class="form-text">Preencha o CEP para autocompletar o endereço.</div>
                   </div>
 
                   <!-- 2) Logradouro -->
-                  <div class="col-12 col-md-6">
+                  <div class="col-12 col-md-8">
                     <label class="form-label">Logradouro</label>
                     <input
                       class="form-control"
                       formControlName="logradouro"
-                      [ngClass]="{
-                        'is-invalid': isInvalidEndereco(i, 'logradouro')
-                      }"
+                      [ngClass]="{ 'is-invalid': isInvalidEndereco(i, 'logradouro') }"
                     />
                     <div class="invalid-feedback">
-                      {{
-                        serverErrorEndereco(i, 'logradouro') || 'Obrigatório.'
-                      }}
+                      {{ serverErrorEndereco(i, 'logradouro') || 'Obrigatório.' }}
                     </div>
                   </div>
 
                   <!-- 3) Número (somente números) -->
-                  <div class="col-6 col-md-3">
+                  <div class="col-6 col-md-2">
                     <label class="form-label">Número</label>
                     <input
                       class="form-control"
                       type="number"
                       inputmode="numeric"
                       formControlName="numero"
-                      [ngClass]="{
-                        'is-invalid': isInvalidEndereco(i, 'numero')
-                      }"
+                      [ngClass]="{ 'is-invalid': isInvalidEndereco(i, 'numero') }"
                       oninput="this.value = this.value.replace(/[^0-9]/g, '')"
                     />
                     <div class="invalid-feedback">
-                      {{
-                        serverErrorEndereco(i, 'numero') ||
-                          'Somente números são permitidos.'
-                      }}
+                      {{ serverErrorEndereco(i, 'numero') || 'Somente números são permitidos.' }}
                     </div>
                   </div>
 
                   <!-- 4) Complemento -->
-                  <div class="col-12 col-md-4">
+                  <div class="col-12 col-md-8">
                     <label class="form-label">Complemento</label>
                     <input class="form-control" formControlName="complemento" />
                   </div>
@@ -221,9 +188,7 @@ function maxSelected(max: number) {
                     <input
                       class="form-control"
                       formControlName="bairro"
-                      [ngClass]="{
-                        'is-invalid': isInvalidEndereco(i, 'bairro')
-                      }"
+                      [ngClass]="{ 'is-invalid': isInvalidEndereco(i, 'bairro') }"
                     />
                     <div class="invalid-feedback">
                       {{ serverErrorEndereco(i, 'bairro') || 'Obrigatório.' }}
@@ -231,14 +196,12 @@ function maxSelected(max: number) {
                   </div>
 
                   <!-- 6) Cidade -->
-                  <div class="col-8 col-md-3">
+                  <div class="col-8 col-md-4">
                     <label class="form-label">Cidade</label>
                     <input
                       class="form-control"
                       formControlName="cidade"
-                      [ngClass]="{
-                        'is-invalid': isInvalidEndereco(i, 'cidade')
-                      }"
+                      [ngClass]="{ 'is-invalid': isInvalidEndereco(i, 'cidade') }"
                     />
                     <div class="invalid-feedback">
                       {{ serverErrorEndereco(i, 'cidade') || 'Obrigatório.' }}
@@ -259,11 +222,34 @@ function maxSelected(max: number) {
                       {{ serverErrorEndereco(i, 'uf') || 'UF (2 letras).' }}
                     </div>
                   </div>
+
+                  <!-- 8) País -->
+                  <div class="col-12 col-md-3">
+                    <label class="form-label">País</label>
+                    <select
+                      class="form-select"
+                      formControlName="pais"
+                      [ngClass]="{ 'is-invalid': isInvalidEndereco(i, 'pais') }"
+                    >
+                      <option value="" disabled>Selecione um país</option>
+                      <option *ngFor="let country of countries" [value]="country.label">
+                        {{ country.label }}
+                      </option>
+                    </select>
+                    <div class="invalid-feedback" *ngIf="isInvalidEndereco(i, 'pais')">
+                      {{
+                        serverErrorEndereco(i, 'pais') ||
+                        (
+                          $any(enderecos.at(i).get('pais')?.errors)?.invalidCountry
+                            ? 'Selecione um país válido.'
+                            : 'País é obrigatório.'
+                        )
+                      }}
+                    </div>
+                  </div>
                 </div>
 
-                <div
-                  class="d-flex flex-wrap flex-sm-nowrap justify-content-end gap-2 mt-3"
-                >
+                <div class="d-flex flex-wrap flex-sm-nowrap justify-content-end gap-2 mt-3">
                   <button
                     class="btn btn-sm btn-outline-danger"
                     type="button"
@@ -309,17 +295,10 @@ function maxSelected(max: number) {
           </div>
 
           <div class="mt-3 d-flex flex-wrap flex-sm-nowrap gap-2">
-            <button
-              class="btn btn-primary flex-fill flex-sm-grow-0 w-100 w-sm-auto"
-              type="submit"
-            >
+            <button class="btn btn-primary flex-fill flex-sm-grow-0 w-100 w-sm-auto" type="submit">
               Salvar
             </button>
-            <a
-              class="btn btn-secondary flex-fill flex-sm-grow-0 w-100 w-sm-auto"
-              [routerLink]="['/clientes']"
-              >Cancelar</a
-            >
+            <a class="btn btn-secondary flex-fill flex-sm-grow-0 w-100 w-sm-auto" [routerLink]="['/app','clientes']">Cancelar</a>
           </div>
         </form>
       </div>
@@ -335,9 +314,7 @@ function maxSelected(max: number) {
       #confirmRemoveEndereco
     >
       <p class="mb-0">
-        Tem certeza que deseja remover o endereço
-        <strong>#{{ indexEnderecoParaRemover! + 1 }}</strong
-        >?
+        Tem certeza que deseja remover o endereço <strong>#{{ indexEnderecoParaRemover! + 1 }}</strong>?
       </p>
       <small class="text-muted">Esta ação não pode ser desfeita.</small>
     </app-confirm-dialog>
@@ -358,22 +335,37 @@ export class ClienteFormComponent implements OnInit {
   @ViewChild('confirmRemoveEndereco')
   confirmDialogEndereco!: ConfirmDialogComponent;
 
+  countries: Country[] = [];
+  loading = false;
+  error: string | null = null;
+
   constructor(
     private fb: FormBuilder,
     private route: ActivatedRoute,
     private router: Router,
     private svc: ClienteService,
     private notify: NotificationService,
-    private viacep: ViaCepService
+    private viacep: ViaCepService,
+    public countriesUtil: CountriesUtil
   ) { }
+
+  // Valida se o país está na lista — mas só depois da carga do IBGE
+  countryValidator = (control: FormControl) => {
+    const v = (control.value ?? '').toString().trim();
+    if (!v) return null;
+    // aguarda pais carregar. não deu certo sem isso. testado já
+    if (!this.countries || this.countries.length === 0) return null;
+    return this.countries.some(c => c.label === v) ? null : { invalidCountry: true };
+  };
 
   ngOnInit(): void {
     this.buildForm();
 
+    // Carrega países
+    this.loadCountries();
+
     // limpa erros do servidor ao editar QUALQUER campo
-    this.subs.push(
-      this.form.valueChanges.subscribe(() => this.clearAllServerErrors())
-    );
+    this.subs.push(this.form.valueChanges.subscribe(() => this.clearAllServerErrors()));
 
     // Carrega opções de modalidades
     this.loadModalidades();
@@ -391,17 +383,15 @@ export class ClienteFormComponent implements OnInit {
             email: c.email,
             telefone: c.telefone ?? '',
             cpf: c.cpf ?? '',
-            modalidades: (c.modalidades ?? []).map(m => m.id) // ids para o select
+            modalidades: (c.modalidades ?? []).map(m => m.id), // ids para o select
           });
-          (c.enderecos || []).forEach((e) =>
-            this.enderecos.push(this.buildEnderecoGroup(e))
-          );
+          (c.enderecos || []).forEach((e) => this.enderecos.push(this.buildEnderecoGroup(e)));
           if (this.enderecos.length === 0) this.addEndereco();
           this.loadingCep = new Array(this.enderecos.length).fill(false);
         },
         error: () => {
           this.notify.error('Cliente não encontrado.');
-          this.router.navigate(['/clientes']);
+          this.router.navigate(['/app', '/clientes']);
         },
       });
     } else {
@@ -429,17 +419,12 @@ export class ClienteFormComponent implements OnInit {
     return this.fb.group({
       id: [e?.id ?? null],
       logradouro: [e?.logradouro ?? '', Validators.required],
-      numero: [
-        e?.numero ?? '',
-        [Validators.required, Validators.pattern(/^[0-9]+$/)],
-      ],
+      numero: [e?.numero ?? '', [Validators.required, Validators.pattern(/^[0-9]+$/)]],
       complemento: [e?.complemento ?? ''],
       bairro: [e?.bairro ?? '', Validators.required],
       cidade: [e?.cidade ?? '', Validators.required],
-      uf: [
-        e?.uf ?? '',
-        [Validators.required, Validators.maxLength(2), Validators.minLength(2)],
-      ],
+      uf: [e?.uf ?? '', [Validators.required, Validators.maxLength(2), Validators.minLength(2)]],
+      pais: [e?.pais ?? 'Brasil', [Validators.required, this.countryValidator]],
       cep: [e?.cep ?? '', [Validators.required, Validators.pattern(/^\d{8}$/)]],
     });
   }
@@ -467,23 +452,14 @@ export class ClienteFormComponent implements OnInit {
     return (c?.errors as any)?.server ?? null;
   }
 
-  serverErrorEndereco(
-    index: number,
-    controlName: keyof Endereco
-  ): string | null {
+  serverErrorEndereco(index: number, controlName: keyof Endereco): string | null {
     return this.serverError(`enderecos[${index}].${controlName as string}`);
   }
 
   // ====== CEP / ViaCEP ======
   private patchEnderecoFromCep(
     index: number,
-    data: {
-      logradouro?: string;
-      bairro?: string;
-      localidade?: string;
-      uf?: string;
-      complemento?: string;
-    }
+    data: { logradouro?: string; bairro?: string; localidade?: string; uf?: string; complemento?: string }
   ) {
     const g = this.enderecos.at(index) as FormGroup;
     const setIfEmpty = (ctrl: string, value?: string) => {
@@ -527,19 +503,18 @@ export class ClienteFormComponent implements OnInit {
 
   // ====== MODALIDADES ======
   private loadModalidades() {
-    // Se preferir, injete um ModalidadeService dedicado.
     this.svc.getModalidades().subscribe({
-      next: (list: Modalidade[]) => this.modalidades = list ?? [],
+      next: (list: Modalidade[]) => (this.modalidades = list ?? []),
       error: () => {
         this.notify.error('Falha ao carregar modalidades.');
         this.modalidades = [];
-      }
+      },
     });
   }
 
   onChangeModalidade(event: Event) {
     const select = event.target as HTMLSelectElement;
-    const selected = Array.from(select.selectedOptions).map(o => Number(o.value));
+    const selected = Array.from(select.selectedOptions).map((o) => Number(o.value));
 
     if (selected.length > this.LIMITE) {
       // desfaz a última seleção
@@ -547,11 +522,10 @@ export class ClienteFormComponent implements OnInit {
       const idx = selected.lastIndexOf(last);
       if (idx !== -1) selected.splice(idx, 1);
 
-      (this.form.get('modalidades') as FormControl<number[]>)
-        .setValue(selected, { emitEvent: false });
+      (this.form.get('modalidades') as FormControl<number[]>).setValue(selected, { emitEvent: false });
 
       // Sincroniza visualmente
-      Array.from(select.options).forEach(opt => {
+      Array.from(select.options).forEach((opt) => {
         opt.selected = selected.includes(Number(opt.value));
       });
 
@@ -571,9 +545,7 @@ export class ClienteFormComponent implements OnInit {
     this.loadingCep[this.enderecos.length - 1] = false;
 
     setTimeout(() => {
-      const inputs = document.querySelectorAll<HTMLInputElement>(
-        'input[formcontrolname="cep"]'
-      );
+      const inputs = document.querySelectorAll<HTMLInputElement>('input[formcontrolname="cep"]');
       inputs[inputs.length - 1]?.focus();
     });
   }
@@ -597,27 +569,24 @@ export class ClienteFormComponent implements OnInit {
   salvar() {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
-      this.notify.error(
-        'Existem campos obrigatórios não preenchidos ou inválidos.'
-      );
+      this.notify.error('Existem campos obrigatórios não preenchidos ou inválidos.');
       return;
     }
 
     // Monta payload conforme o DTO do backend
     const { modalidades, ...rest } = this.form.value as any;
+
     const payload: any = {
-      ...rest,
-      modalidadeIds: modalidades ?? [],  // <- novo campo para o back
+      ...rest,   // inclui enderecos com 'pais'
+      modalidadeIds: modalidades ?? [],
     };
 
-    const req$ = this.editingId
-      ? this.svc.update(this.editingId, payload)
-      : this.svc.create(payload);
+    const req$ = this.editingId ? this.svc.update(this.editingId, payload) : this.svc.create(payload);
 
     req$.subscribe({
       next: () => {
         this.notify.success('Cliente salvo com sucesso!');
-        this.router.navigate(['/clientes']);
+        this.router.navigate(['/app', '/clientes']);
       },
       error: (err) => {
         const fe = err?.error?.fieldErrors;
@@ -685,5 +654,24 @@ export class ClienteFormComponent implements OnInit {
       }
     }
     return ctrl;
+  }
+
+  // ====== Countries ======
+  loadCountries(): void {
+    this.loading = true;
+    this.error = null;
+
+    this.countriesUtil
+      .getCountries()
+      .pipe(finalize(() => (this.loading = false)))
+      .subscribe({
+        next: (data) => {
+          this.countries = data;
+        },
+        error: (err) => {
+          this.error = err.message || 'Failed to load countries';
+          this.countries = [];
+        },
+      });
   }
 }

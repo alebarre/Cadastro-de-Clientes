@@ -17,13 +17,21 @@ export class AuthService {
   loggedIn$ = this._loggedIn$.asObservable();
 
   constructor() {
-    // nada especial aqui; rolesFromToken é usado onde for necessário
   }
 
   // ===== Auth core =====
   login(username: string, password: string) {
     return this.http.post<AuthResponse>(`${this.base}/login`, { username, password }).pipe(
-      tap(res => this.applyTokens(res.accessToken, res.expiresIn, res.username, res.refreshToken))
+      tap(res => {
+        this.applyTokens(res.accessToken, res.expiresIn, res.username, res.refreshToken);
+        const redirect = sessionStorage.getItem('redirect_after_login');
+        if (redirect) {
+          sessionStorage.removeItem('redirect_after_login');
+          this.router.navigateByUrl(redirect);
+        } else {
+          this.router.navigate(['/app']);
+        }
+      })
     );
   }
 

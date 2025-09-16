@@ -89,10 +89,10 @@ export class LoginComponent {
     this.returnUrl =
       this.route.snapshot.queryParamMap.get('returnUrl') ||
       window.history.state?.returnUrl ||
-      '/clientes';
-    // no constructor do LoginComponent
+      '/app';
+    // Se já está logado, manda pro Shell
     if (this.auth.hasValidToken()) {
-      this.router.navigateByUrl('/clientes', { replaceUrl: true });
+      this.router.navigateByUrl('/app', { replaceUrl: true });
     }
   }
 
@@ -109,25 +109,19 @@ export class LoginComponent {
     this.loading = true;
     const { username, password } = this.form.value;
 
-    this.auth
-      .login(username!, password!)
-      .subscribe({
-        // login.component.ts (dentro do subscribe do this.auth.login(...))
-        next: () => {
-          this.notify.success('Login realizado com sucesso!');
-          const target = this.returnUrl || '/clientes';
-          // garante que a toast renderize e evita voltar pro /login no histórico
-          setTimeout(
-            () => this.router.navigateByUrl(target, { replaceUrl: true }),
-            0
-          );
-        },
+    // salva o destino desejado para o AuthService usar no pós-login
+    const target = this.returnUrl || '/app';
+    sessionStorage.setItem('redirect_after_login', target);
 
-        error: (err) => {
-          const msg = err?.error?.message || 'Falha no login.';
-          this.notify.error(msg);
-        },
-      })
-      .add(() => (this.loading = false));
+    this.auth.login(username!, password!).subscribe({
+      next: () => {
+        this.notify.success('Login realizado com sucesso!');
+        // Navegação fica a cargo do AuthService (já patchado p/ /app + redirect_after_login)
+      },
+      error: (err) => {
+        const msg = err?.error?.message || 'Falha no login.';
+        this.notify.error(msg);
+      },
+    }).add(() => (this.loading = false));
   }
 }

@@ -7,6 +7,7 @@ export interface Endereco {
   cidade: string;
   uf: string;
   cep: string;
+  pais: string;
 }
 
 export interface Modalidade {
