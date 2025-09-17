@@ -90,6 +90,7 @@ export class ClienteService {
       email: c.email,
       telefone: c.telefone ?? null,
       cpf: c.cpf ?? null,
+      dataNascimento: c.dataNascimento ?? null,
       enderecos: c.enderecos || [],
       modalidadeIds: (c.modalidades || []).map(m => m.id),
     };

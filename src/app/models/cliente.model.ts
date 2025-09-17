@@ -23,8 +23,9 @@ export interface Cliente {
   email: string;
   telefone?: string | null;
   cpf?: string | null;
+  dataNascimento?: string | null; // ISO string
   enderecos: Endereco[];
-  modalidades?: Modalidade[]; // usado no card e para montar modalidadeIds no toRequest
+  modalidades?: Modalidade[];
 }
 
 /** Payload esperado pelo backend */
@@ -33,8 +34,9 @@ export interface ClienteRequest {
   email: string;
   telefone?: string | null;
   cpf?: string | null;
+  dataNascimento?: string | null; // ISO string
   enderecos: Endereco[];
-  modalidadeIds: number[]; // << chave correta
+  modalidadeIds: number[];
 }
 
 export interface ClienteSummary {
@@ -42,8 +44,9 @@ export interface ClienteSummary {
   nome: string;
   email: string;
   telefone?: string | null;
-  enderecosResumo?: string; // preenchido no service
-  cidades?: string[];       // caso venha do back
+  dataNascimento?: string | null; // ISO string
+  enderecosResumo?: string;
+  cidades?: string[];
   quantidadeModalidades: number;
 }
 

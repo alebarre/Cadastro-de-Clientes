@@ -35,21 +35,32 @@ import { AuthService } from '../../services/auth.service';
     <div class="card shadow-sm">
       <div class="card-header bg-light">
         <strong class="d-block text-truncate" style="font-size: 1.5rem;">{{ cliente.nome }}</strong>
-        <div class="col" *ngFor="let e of cliente.enderecos; let i = index">
-          <strong class="d-block text-truncate">{{ e.pais }}</strong>
-        </div>
+
+          <h6>Atleta inscrito em {{ cliente.modalidades?.length }} modalidade(s) e com {{ cliente.enderecos.length }} endereço(s) cadastrado(s).</h6>
       </div>
 
       <div class="card-body">
         <!-- Infos básicas -->
         <div class="row g-3">
-          <div class="col-12 col-md-6">
+          <div class="col-12 col-md-4">
             <div class="small text-muted">Email</div>
             <div class="text-truncate">{{ cliente.email }}</div>
           </div>
-          <div class="col-12 col-md-6">
+
+          <div class="col-12 col-md-4">
             <div class="small text-muted">Telefone</div>
             <div>{{ cliente.telefone || '-' }}</div>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <div class="small text-muted">Nascimento</div>
+            <div>
+              <ng-container *ngIf="cliente.dataNascimento; else dash">
+                {{ cliente.dataNascimento | date:'dd/MM/yyyy' }}
+                <small class="text-muted"> ({{ idade(cliente.dataNascimento) }} anos)</small>
+              </ng-container>
+              <ng-template #dash>-</ng-template>
+            </div>
           </div>
         </div>
 
@@ -79,8 +90,6 @@ import { AuthService } from '../../services/auth.service';
         <hr class="my-4" />
 
         <!-- Endereços -->
-        <h5 class="mb-3">Endereços ({{ cliente.enderecos.length || 0 }})</h5>
-
         <div *ngIf="!cliente.enderecos?.length" class="alert alert-info">
           Nenhum endereço cadastrado.
         </div>
@@ -90,7 +99,7 @@ import { AuthService } from '../../services/auth.service';
             <div class="card h-100">
               <div class="card-body">
                 <div class="d-flex justify-content-between align-items-start">
-                  <h6 class="card-title mb-2">Endereço em {{ e.pais }}</h6>
+                  <h5 class="card-title mb-2">Endereço em {{ e.pais }}</h5>
                   <span class="badge bg-secondary">{{ e.uf }}</span>
                 </div>
                 <p class="mb-1">
@@ -158,4 +167,16 @@ export class ClienteCardComponent {
     const d = (cep || '').replace(/\D/g, '');
     return d.length === 8 ? `${d.slice(0, 5)}-${d.slice(5)}` : cep || '-';
   }
+
+  idade(iso: string | null | undefined): number | null {
+    if (!iso) return null;
+    const d = new Date(iso + 'T00:00:00');
+    if (Number.isNaN(d.getTime())) return null;
+    const today = new Date();
+    let age = today.getFullYear() - d.getFullYear();
+    const m = today.getMonth() - d.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age--;
+    return age;
+  }
+
 }

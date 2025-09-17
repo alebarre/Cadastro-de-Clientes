@@ -48,7 +48,7 @@ function maxSelected(max: number) {
 
         <form [formGroup]="form" (ngSubmit)="salvar()" novalidate>
           <div class="row g-3">
-            <div class="col-12 col-md-6">
+            <div class="col-12 col-md-8">
               <label class="form-label">Nome</label>
               <input
                 class="form-control"
@@ -57,6 +57,27 @@ function maxSelected(max: number) {
               />
               <div class="invalid-feedback">
                 {{ serverError('nome') || 'Informe um nome com ao menos 3 caracteres.' }}
+              </div>
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label">Data de nascimento</label>
+              <input
+                class="form-control"
+                type="date"
+                formControlName="dataNascimento"
+                [max]="todayStr"
+                [ngClass]="{ 'is-invalid': isInvalid('dataNascimento') }"
+              />
+              <div class="invalid-feedback">
+                {{
+                  serverError('dataNascimento')
+                    || (form.get('dataNascimento')?.errors?.['dateFuture']
+                          ? 'A data não pode ser no futuro.'
+                          : (form.get('dataNascimento')?.errors?.['dateInvalid']
+                                ? 'Data inválida.'
+                                : ''))
+                }}
               </div>
             </div>
 
@@ -74,7 +95,7 @@ function maxSelected(max: number) {
               </div>
             </div>
 
-            <div class="col-12 col-md-6">
+            <div class="col-12 col-md-3">
               <label class="form-label">Telefone</label>
               <input
                 class="form-control"
@@ -89,18 +110,25 @@ function maxSelected(max: number) {
               </div>
             </div>
 
-            <div class="col-12 col-md-6">
+            <div class="col-12 col-md-3">
               <label class="form-label">CPF (opcional)</label>
               <input
                 class="form-control"
                 formControlName="cpf"
-                appMask="cpf"
-                [maskSaveRaw]="true"
+                inputmode="numeric"
+                autocomplete="off"
+                maxlength="14"
                 placeholder="000.000.000-00"
+                (input)="onCpfInput($event)"
                 [ngClass]="{ 'is-invalid': isInvalid('cpf') }"
               />
               <div class="invalid-feedback">
-                {{ serverError('cpf') || 'CPF deve ter 11 dígitos.' }}
+                {{
+                  serverError('cpf')
+                    || (form.get('cpf')?.errors?.['cpfInvalid']
+                          ? 'CPF inválido.'
+                          : 'CPF deve ter 11 dígitos.')
+                }}
               </div>
             </div>
           </div>
@@ -338,6 +366,8 @@ export class ClienteFormComponent implements OnInit {
   countries: Country[] = [];
   loading = false;
   error: string | null = null;
+  todayStr = new Date().toISOString().slice(0, 10);
+
 
   constructor(
     private fb: FormBuilder,
@@ -382,7 +412,8 @@ export class ClienteFormComponent implements OnInit {
             nome: c.nome,
             email: c.email,
             telefone: c.telefone ?? '',
-            cpf: c.cpf ?? '',
+            cpf: this.maskCpf(c.cpf ?? ''),
+            dataNascimento: c.dataNascimento ?? '',
             modalidades: (c.modalidades ?? []).map(m => m.id), // ids para o select
           });
           (c.enderecos || []).forEach((e) => this.enderecos.push(this.buildEnderecoGroup(e)));
@@ -409,7 +440,8 @@ export class ClienteFormComponent implements OnInit {
       nome: ['', [Validators.required, Validators.minLength(3)]],
       email: ['', [Validators.required, Validators.email]],
       telefone: ['', [Validators.pattern(/^\d{10,11}$/)]],
-      cpf: ['', [Validators.pattern(/^\d{11}$/)]],
+      cpf: ['', [this.cpfValidator]],
+      dataNascimento: ['', [this.pastOrToday]],
       enderecos: this.fb.array([]),
       modalidades: this.fb.control<number[]>([], [maxSelected(this.LIMITE)]),
     });
@@ -574,11 +606,15 @@ export class ClienteFormComponent implements OnInit {
     }
 
     // Monta payload conforme o DTO do backend
-    const { modalidades, ...rest } = this.form.value as any;
+    const { modalidades, dataNascimento, ...rest } = this.form.value as any;
+
+    const rawCpf = rest.cpf ? String(rest.cpf).replace(/\D/g, '') : null;
 
     const payload: any = {
       ...rest,   // inclui enderecos com 'pais'
+      cpf: rawCpf,
       modalidadeIds: modalidades ?? [],
+      dataNascimento: dataNascimento || null,
     };
 
     const req$ = this.editingId ? this.svc.update(this.editingId, payload) : this.svc.create(payload);
@@ -633,7 +669,7 @@ export class ClienteFormComponent implements OnInit {
     clear(this.form);
   }
 
-  /** Resolve caminho estilo 'email' ou 'enderecos[0].cidade' para o AbstractControl */
+  /** Resolve caminho estilo para o AbstractControl */
   private resolveControl(path: string): AbstractControl | null {
     const tokens: (string | number)[] = [];
     const regex = /([^[.\]]+)|\[(\d+)\]/g;
@@ -674,4 +710,67 @@ export class ClienteFormComponent implements OnInit {
         },
       });
   }
+
+  /** Validador: aceita vazio; valida 11 dígitos e dígitos verificadores */
+  cpfValidator = (control: AbstractControl): ValidationErrors | null => {
+    const raw = String(control.value ?? '');
+    const digits = raw.replace(/\D/g, '');
+
+    if (!digits) return null;             // opcional
+    if (digits.length !== 11) return { cpfInvalid: true };
+    if (/^(\d)\1{10}$/.test(digits)) return { cpfInvalid: true }; // todos iguais
+
+    const calcDV = (base: string, factorStart: number) => {
+      let sum = 0;
+      for (let i = 0; i < base.length; i++) {
+        sum += parseInt(base[i], 10) * (factorStart - i);
+      }
+      const mod = (sum * 10) % 11;
+      return mod === 10 ? 0 : mod;
+    };
+
+    const dv1 = calcDV(digits.slice(0, 9), 10);
+    if (dv1 !== parseInt(digits[9], 10)) return { cpfInvalid: true };
+
+    const dv2 = calcDV(digits.slice(0, 10), 11);
+    if (dv2 !== parseInt(digits[10], 10)) return { cpfInvalid: true };
+
+    return null;
+  };
+
+  /** Formata em 000.000.000-00 conforme digita (sem parênteses) */
+  maskCpf(value: string): string {
+    const d = (value || '').replace(/\D/g, '').slice(0, 11);
+    const p1 = d.slice(0, 3);
+    const p2 = d.slice(3, 6);
+    const p3 = d.slice(6, 9);
+    const p4 = d.slice(9, 11);
+    let out = p1;
+    if (p2) out += '.' + p2;
+    if (p3) out += '.' + p3;
+    if (p4) out += '-' + p4;
+    return out;
+  }
+
+  /** Input handler p/ CPF: exibe máscara, mantém controle sincronizado */
+  onCpfInput(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const masked = this.maskCpf(input.value);
+    // Atualiza apenas o que o usuário vê
+    input.value = masked;
+    // Mantém o mesmo valor no form (mascarado). Enviamos “raw” no salvar().
+    this.form.get('cpf')?.setValue(masked, { emitEvent: true, emitModelToViewChange: false });
+  }
+
+  pastOrToday = (control: AbstractControl): ValidationErrors | null => {
+    const v = (control.value ?? '').toString().trim();
+    if (!v) return null; // opcional
+    // espera ISO yyyy-MM-dd do <input type="date">
+    const d = new Date(v + 'T00:00:00');
+    if (Number.isNaN(d.getTime())) return { dateInvalid: true };
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    return d.getTime() <= today.getTime() ? null : { dateFuture: true };
+  };
+
+
 }
