@@ -1,77 +1,107 @@
-// path: src/app/usuarios/usuario-form.component.ts
-import { Component } from '@angular/core';
+// src/app/pages/usuario-form/usuarios-form.component.ts
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, FormArray } from '@angular/forms';
+import {
+  FormBuilder, ReactiveFormsModule, Validators,
+  AbstractControl, FormGroup
+} from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { UsuarioService } from '../../services/usuario.service';
 import { NotificationService } from '../../services/notification.service';
-import { SidebarComponent } from "../../layout/sidebar.component";
+import { passwordPolicyValidator } from '../../utils/password-validators';
+import { Subscription } from 'rxjs';
 
 @Component({
-  selector: 'app-usuario-form',
+  selector: 'app-usuarios-form',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, SidebarComponent],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink],
   template: `
-  <app-sidebar></app-sidebar>
-
   <div class="card">
     <div class="card-body">
-      <h4 class="card-title mb-3">{{ editingId ? 'Editar Usuário' : 'Novo Usuário' }}</h4>
+      <h4 class="mb-3">{{ isEdit ? 'Editar usuário' : 'Novo usuário' }}</h4>
 
       <form [formGroup]="form" (ngSubmit)="salvar()" novalidate>
         <div class="row g-3">
           <div class="col-12 col-md-6">
             <label class="form-label">Nome</label>
-            <input class="form-control" formControlName="nome" [ngClass]="{'is-invalid': invalid('nome')}" />
-            <div class="invalid-feedback">Informe um nome com ao menos 3 caracteres.</div>
+            <input class="form-control" formControlName="nome"
+                   [class.is-invalid]="invalid('nome')">
+            <div class="invalid-feedback">Informe o nome (mín. 3).</div>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Username</label>
+            <input class="form-control" formControlName="username"
+                   [class.is-invalid]="invalid('username')">
+            <div class="invalid-feedback">Informe o username.</div>
           </div>
 
           <div class="col-12 col-md-6">
             <label class="form-label">Email</label>
-            <input class="form-control" type="email" formControlName="email" [ngClass]="{'is-invalid': invalid('email')}" />
-            <div class="invalid-feedback">Email inválido.</div>
+            <input class="form-control" formControlName="email"
+                   [class.is-invalid]="invalid('email')">
+            <div class="invalid-feedback">Informe um e-mail válido.</div>
           </div>
 
-          <div class="col-12 col-md-6" *ngIf="!editingId">
-            <label class="form-label">Senha</label>
-            <input class="form-control" type="password" formControlName="senha" [ngClass]="{'is-invalid': invalid('senha')}" />
-            <div class="invalid-feedback">Senha deve ter ao menos 6 caracteres.</div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">Telefone</label>
+            <input class="form-control" formControlName="telefone">
           </div>
 
-          <div class="col-12 col-md-3">
-            <label class="form-label d-block">Papéis</label>
+          <div class="col-12 col-md-3 d-flex align-items-end">
             <div class="form-check">
-              <input class="form-check-input" type="checkbox" [checked]="hasRole('ROLE_USER')" (change)="toggleRole('ROLE_USER', $event)">
-              <label class="form-check-label">USER</label>
+              <input type="checkbox" id="enabled" class="form-check-input" formControlName="enabled">
+              <label class="form-check-label" for="enabled">Ativo</label>
             </div>
-            <div class="form-check">
-              <input class="form-check-input" type="checkbox" [checked]="hasRole('ROLE_ADMIN')" (change)="toggleRole('ROLE_ADMIN', $event)">
-              <label class="form-check-label">ADMIN</label>
+          </div>
+        </div>
+
+        <hr class="my-4" />
+
+        <!-- Troca de senha -->
+        <h5 class="mb-2">Trocar senha <small class="text-muted" *ngIf="isEdit">(opcional)</small></h5>
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <label class="form-label">{{ isEdit ? 'Nova senha (deixe em branco para manter)' : 'Senha' }}</label>
+            <input type="password" class="form-control" formControlName="password"
+                   [class.is-invalid]="invalid('password') || !!form.get('password')?.errors?.['server']">
+            <div class="form-text" *ngIf="form.get('password')?.errors?.['policy']">
+              Requisitos: {{ form.get('password')?.errors?.['policy'] }}
             </div>
-            <div class="form-text">Selecione ao menos um papel.</div>
+            <div class="invalid-feedback" *ngIf="form.get('password')?.errors?.['server']">
+              {{ form.get('password')?.errors?.['server'] }}
+            </div>
+            <div class="invalid-feedback" *ngIf="!form.get('password')?.errors?.['server'] && invalid('password')">
+              Senha inválida.
+            </div>
           </div>
 
-          <div class="col-12 col-md-3">
-            <label class="form-label d-block">Ativo</label>
-            <div class="form-check form-switch">
-              <input class="form-check-input" type="checkbox" formControlName="ativo">
-              <label class="form-check-label">Ativo</label>
-            </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">{{ isEdit ? 'Confirmar nova senha' : 'Confirmar senha' }}</label>
+            <input type="password" class="form-control" formControlName="confirm"
+                   [class.is-invalid]="(passwordTouchedOrFilled() || confirmTouched()) && mismatch()">
+            <div class="invalid-feedback">As senhas não coincidem.</div>
           </div>
         </div>
 
         <div class="mt-3 d-flex flex-wrap flex-sm-nowrap gap-2">
-          <button class="btn btn-primary flex-fill flex-sm-grow-0 w-100 w-sm-auto" type="submit">Salvar</button>
-          <a class="btn btn-secondary flex-fill flex-sm-grow-0 w-100 w-sm-auto" [routerLink]="['/usuarios']">Cancelar</a>
+          <button class="btn btn-primary flex-fill flex-sm-grow-0 w-100 w-sm-auto" type="submit">
+            Salvar
+          </button>
+          <a class="btn btn-secondary flex-fill flex-sm-grow-0 w-100 w-sm-auto" [routerLink]="['/app','usuarios']">
+            Cancelar
+          </a>
         </div>
       </form>
     </div>
   </div>
-  `,
+  `
 })
-export class UsuariosFormComponent {
+export class UsuariosFormComponent implements OnInit, OnDestroy {
   form!: FormGroup;
-  editingId: number | null = null;
+  isEdit = false;
+  id?: number;
+  subs: Subscription[] = [];
 
   constructor(
     private fb: FormBuilder,
@@ -81,87 +111,154 @@ export class UsuariosFormComponent {
     private notify: NotificationService
   ) { }
 
-  ngOnInit() {
-    this.form = this.fb.group({
-      nome: ['', [Validators.required, Validators.minLength(3)]],
-      email: ['', [Validators.required, Validators.email]],
-      senha: ['', this.isCreate() ? [Validators.required, Validators.minLength(6)] : []],
-      roles: this.fb.array<string>([], [Validators.required]),
-      ativo: [true],
-    });
+  ngOnInit(): void {
+    this.buildForm();
 
     const idParam = this.route.snapshot.paramMap.get('id');
-    if (idParam) {
-      this.editingId = Number(idParam);
-      this.svc.getById(this.editingId).subscribe({
-        next: (u) => {
+    this.isEdit = !!idParam;
+    if (this.isEdit) this.id = Number(idParam);
+
+    // Sincroniza validadores de senha conforme modo / preenchimento
+    this.syncPasswordValidators();
+
+    // Reage quando o usuário digita/limpa senha/confirm
+    this.subs.push(
+      this.form.get('password')!.valueChanges.subscribe(() => this.syncPasswordValidators()),
+      this.form.get('confirm')!.valueChanges.subscribe(() => this.syncPasswordValidators())
+    );
+
+    if (this.isEdit && this.id) {
+      this.svc.getById(this.id).subscribe({
+        next: u => {
           this.form.patchValue({
             nome: u.nome,
+            username: u.username,
             email: u.email,
-            ativo: u.ativo
+            telefone: u.telefone ?? '',
+            enabled: u.enabled ?? true
           });
-          // set roles checkboxes
-          const fa = this.form.get('roles') as FormArray<any>;
-          fa.clear();
-          for (const r of u.roles || []) fa.push(this.fb.control(r));
+          // Em edição, deixa password/confirm vazios (opcional)
+          this.syncPasswordValidators();
         },
         error: () => {
           this.notify.error('Usuário não encontrado.');
-          this.router.navigate(['/usuarios']);
+          this.router.navigate(['/app', 'usuarios']);
         }
       });
     }
   }
 
-  private isCreate() { return !this.route.snapshot.paramMap.get('id'); }
+  ngOnDestroy() { this.subs.forEach(s => s.unsubscribe()); }
 
-  invalid(path: string) {
-    const c = this.form.get(path);
-    return !!c && c.invalid && (c.touched || c.dirty);
+  /* ================== FORM ================== */
+  buildForm() {
+    this.form = this.fb.group({
+      nome: ['', [Validators.required, Validators.minLength(3)]],
+      username: ['', [Validators.required]],
+      email: ['', [Validators.required, Validators.email]],
+      telefone: [''],
+      enabled: [true],
+      password: [''], // dinâmica (obrigatória só em criação ou se preenchida)
+      confirm: ['']   // idem
+    });
   }
 
-  hasRole(role: string) {
-    return (this.form.get('roles') as FormArray<any>).value.includes(role);
+  /** Em criação: senha obrigatória + política.
+   *  Em edição: se os dois campos estiverem vazios ⇒ sem validação.
+   *             se preencher, aplica política e confirmação obrigatória. */
+  private syncPasswordValidators() {
+    const pwd = this.form.get('password')!;
+    const conf = this.form.get('confirm')!;
+    const p = (pwd.value ?? '').toString();
+    const c = (conf.value ?? '').toString();
+
+    if (!this.isEdit) {
+      // criação
+      pwd.setValidators([Validators.required, passwordPolicyValidator(8)]);
+      conf.setValidators([Validators.required]);
+    } else {
+      // edição
+      const wantsChange = p.trim().length > 0 || c.trim().length > 0;
+      if (wantsChange) {
+        pwd.setValidators([Validators.required, passwordPolicyValidator(8)]);
+        conf.setValidators([Validators.required]);
+      } else {
+        // não quer trocar → sem erros/validação
+        pwd.setValidators([]);
+        conf.setValidators([]);
+        // limpa erros antigos
+        pwd.setErrors(null);
+        conf.setErrors(null);
+      }
+    }
+    pwd.updateValueAndValidity({ emitEvent: false });
+    conf.updateValueAndValidity({ emitEvent: false });
   }
 
-  toggleRole(role: string, ev: Event) {
-    const checked = (ev.target as HTMLInputElement).checked;
-    const roles = this.form.get('roles') as FormArray<any>;
-    const idx = roles.value.indexOf(role);
-    if (checked && idx === -1) roles.push(this.fb.control(role));
-    if (!checked && idx !== -1) roles.removeAt(idx);
-    roles.updateValueAndValidity();
+  /* ================== UI helpers ================== */
+  invalid(name: string) {
+    const c = this.form.get(name);
+    return !!c && c.invalid && (c.dirty || c.touched);
+  }
+  mismatch(): boolean {
+    const p = (this.form.value.password || '').toString();
+    const c = (this.form.value.confirm || '').toString();
+    // só acusa mismatch se houver “intenção” de trocar (algum preenchido)
+    if (this.isEdit && !p && !c) return false;
+    return p !== c;
+  }
+  passwordTouchedOrFilled() {
+    const c = this.form.get('password');
+    const v = (c?.value || '').toString();
+    return (c?.touched || c?.dirty || v.length > 0);
+  }
+  confirmTouched() {
+    const c = this.form.get('confirm');
+    const v = (c?.value || '').toString();
+    return (c?.touched || c?.dirty || v.length > 0);
   }
 
+  /* ================== SUBMIT ================== */
   salvar() {
-    if (this.form.invalid) {
-      this.form.markAllAsTouched();
-      this.notify.error('Preencha os campos obrigatórios.');
+    // Se houver intenção de trocar senha, bloqueia mismatch/política
+    if (this.mismatch()) {
+      this.form.get('confirm')?.markAsTouched();
+      this.notify.error('As senhas não coincidem.');
       return;
     }
-    const value = this.form.value as any;
 
-    // monta request (não envia senha vazia no update)
-    const body = {
-      nome: value.nome,
-      email: value.email,
-      senha: this.editingId ? undefined : value.senha,
-      roles: value.roles?.length ? value.roles : [],
-      ativo: !!value.ativo,
-    };
+    this.syncPasswordValidators();
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      this.notify.error('Há campos inválidos.');
+      return;
+    }
 
-    const req$ = this.editingId
-      ? this.svc.update(this.editingId, body)
+    // Monta payload; omite password vazio em edição
+    const { password, confirm, ...rest } = this.form.value;
+    const body: any = { ...rest };
+    const wantsChange = !!(password && password.toString().trim().length);
+
+    if (!this.isEdit) {
+      // criação → deve enviar senha
+      body.password = password;
+    } else if (wantsChange) {
+      body.password = password;
+    }
+
+    const req$ = this.isEdit && this.id
+      ? this.svc.update(this.id, body)
       : this.svc.create(body);
 
     req$.subscribe({
       next: () => {
         this.notify.success('Usuário salvo com sucesso!');
-        this.router.navigate(['/usuarios']);
+        this.router.navigate(['/app', 'usuarios']);
       },
       error: (err) => {
-        const msg = err?.error?.message || 'Erro ao salvar.';
-        this.notify.error(msg);
+        const fe = err?.error?.fieldErrors;
+        if (fe?.password) this.form.get('password')?.setErrors({ server: fe.password });
+        this.notify.error(err?.error?.message || 'Falha ao salvar.');
       }
     });
   }

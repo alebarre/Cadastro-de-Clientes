@@ -1,24 +1,29 @@
 // path: src/app/models/usuario.model.ts
 export interface Usuario {
   id?: number;
+  username: string;
   nome: string;
   email: string;
-  roles: string[];   // ex.: ['ROLE_USER', 'ROLE_ADMIN']
-  ativo: boolean;
+  telefone?: string;
+  roles: string[];
+  enabled: boolean;
 }
 
 export interface UsuarioRequest {
+  username: string;
+  password?: string; // obrigatório no create, opcional no update
   nome: string;
   email: string;
-  senha?: string | null; // obrigatório só no create
+  telefone?: string;
   roles: string[];
-  ativo: boolean;
+  enabled: boolean;
 }
 
 export interface UsuarioSummary {
   id: number;
+  username: string;
   nome: string;
   email: string;
-  roles: string[];
-  ativo: boolean;
+  telefone?: string;
+  enabled: boolean;
 }

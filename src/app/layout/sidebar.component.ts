@@ -31,8 +31,14 @@ import { AuthService } from '../services/auth.service';
     <li>
       <a routerLink="/app/clientes" routerLinkActive="active">Clientes</a>
     </li>
+    <li>
+      <a routerLink="/app/relatorios" routerLinkActive="active">Relatórios</a>
+    </li>
     <li *ngIf="isAdmin">
       <a routerLink="/app/usuarios" routerLinkActive="active">Usuários</a>
+    </li>
+    <li *ngIf="isAdmin">
+      <a routerLink="/app/cobrancas" routerLinkActive="active">Cobranças</a>
     </li>
   </ul>
 </nav>

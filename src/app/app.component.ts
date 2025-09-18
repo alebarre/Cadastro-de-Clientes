@@ -29,9 +29,7 @@ import { ToastsContainerComponent } from './shared/toast-container/toasts-contai
       </div>
     </nav>
 
-    <div class="container py-4">
-      <router-outlet></router-outlet>
-    </div>
+    <router-outlet></router-outlet>
 
     <!-- footer fixo -->
       <footer class="footer bg-light border-top py-2 text-muted">
