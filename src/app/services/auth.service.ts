@@ -4,8 +4,9 @@ import { BehaviorSubject, tap, throwError } from 'rxjs';
 import { Router } from '@angular/router';
 import { environment } from '../../environments/environment';
 
-interface AuthResponse { accessToken: string; expiresIn: number; username: string; refreshToken: string; }
-interface RefreshResponse { accessToken: string; expiresIn: number; refreshToken: string; }
+interface AuthRegisterResponse { message: string };
+interface AuthResponse { accessToken: string; expiresIn: number; username: string; refreshToken: string; };
+interface RefreshResponse { accessToken: string; expiresIn: number; refreshToken: string; };
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -55,8 +56,11 @@ export class AuthService {
   }
 
   // ===== Flows: register / verify / forgot / reset / resend =====
-  register(email: string, password: string) {
-    return this.http.post<{ message: string }>(`${this.base}/register`, { email, password });
+  register(nome: string, email: string, phone: string, password: string) {
+    return this.http.post<AuthRegisterResponse>(
+      `${this.base}/register`,
+      { nome, email, phone, password }
+    );
   }
   verify(email: string, code: string) {
     return this.http.post<{ message: string }>(`${this.base}/verify`, { email, code });

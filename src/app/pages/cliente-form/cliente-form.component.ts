@@ -768,7 +768,8 @@ export class ClienteFormComponent implements OnInit {
     // espera ISO yyyy-MM-dd do <input type="date">
     const d = new Date(v + 'T00:00:00');
     if (Number.isNaN(d.getTime())) return { dateInvalid: true };
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     return d.getTime() <= today.getTime() ? null : { dateFuture: true };
   };
 

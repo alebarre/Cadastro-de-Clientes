@@ -96,6 +96,14 @@ export class LoginComponent {
     }
   }
 
+  ngOnInit(): void {
+    this.form.reset({ username: '', password: '' });
+  }
+
+  ngAfterViewInit(): void {
+    setTimeout(() => this.form.reset({ username: '', password: '' }), 0);
+  }
+
   isInvalid(name: string) {
     const c = this.form.get(name);
     return !!c && c.invalid && (c.dirty || c.touched);

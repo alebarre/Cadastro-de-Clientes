@@ -122,7 +122,10 @@ export class ForgotComponent {
     this.serverNewPassError = null;
     this.loading = true;
     this.auth.reset(email, this.code, this.newPassword).subscribe({
-      next: res => { this.setAlert('success', res.message || 'Senha redefinida.'); this.router.navigate(['/login']); },
+      next: res => {
+        this.setAlert('success', res.message + ' Redirecionando...' || 'Senha alterada com sucesso. Redirecionando…');
+        setTimeout(() => this.router.navigateByUrl('/login', { replaceUrl: true }), 3500);
+      },
       error: err => {
         const fe = err?.error?.fieldErrors;
         if (fe?.newPassword) this.serverNewPassError = fe.newPassword;
