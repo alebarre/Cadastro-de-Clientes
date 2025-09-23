@@ -22,13 +22,13 @@ export class NotificationService {
   show(type: ToastType, text: string, delay = 4000) {
     this._events.next({ id: this.makeId(), type, text, delay });
   }
-  success(text: string, delay = 4000) {
+  success(text: string, delay = 5000) {
     this.show('success', text, delay);
   }
   error(text: string, delay = 5000) {
     this.show('danger', text, delay);
   }
-  info(text: string, delay = 4000) {
+  info(text: string, delay = 5000) {
     this.show('info', text, delay);
   }
   warn(text: string, delay = 5000) {

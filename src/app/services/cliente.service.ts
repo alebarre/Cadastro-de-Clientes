@@ -52,6 +52,10 @@ export class ClienteService {
     return unicas.join(' | ');
   }
 
+  checkEmailExists(email: string): Observable<boolean> {
+    return this.http.get<boolean>(`${this.base}/email/${email}`);
+  }
+
   /** Detalhe para edição ou card */
   getById(id: string | number): Observable<Cliente> {
     return this.http.get<Cliente>(`${this.base}/${id}`);

@@ -170,22 +170,22 @@ export class LoginComponent implements OnInit, OnDestroy {
     this.auth.login(username!, password!).subscribe({
       next: () => {
         this.notify.success('Login realizado com sucesso!');
-        // navegação acontece no AuthService (conforme sua lógica atual)
+        // navegação no AuthService
       },
       error: (err: any) => {
         const status = err?.status;
 
-        // corpo pode ser objeto, string ou algo indefinido
+        // pode ser objeto, string ou indefinido
         const body = err?.error;
         const bodyObj = (body && typeof body === 'object') ? body : null;
 
-        // mensagem amigável vinda do backend (novo contrato usa `detail`)
+        // mensagem do back
         const backendMsg =
           (bodyObj?.detail ?? bodyObj?.message ?? bodyObj?.title ?? '') ||
           (typeof body === 'string' ? body : '') ||
           err?.message || '';
 
-        // Retry-After: prioriza campo do JSON, depois header
+        // Retry-After: se não vier nada no Json, pega o do header
         const retryFromBody = Number(bodyObj?.retry_after);
         const retryHeaderRaw = err?.headers?.get?.('Retry-After');
         const retryFromHeader = retryHeaderRaw != null ? Number(retryHeaderRaw) : NaN;

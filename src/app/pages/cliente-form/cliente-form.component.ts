@@ -88,10 +88,14 @@ function maxSelected(max: number) {
                 type="email"
                 formControlName="email"
                 autocomplete="email"
+                (blur)="emailAlreadyExists($event)"
                 [ngClass]="{ 'is-invalid': isInvalid('email') }"
               />
               <div class="invalid-feedback">
-                {{ serverError('email') || 'Email inválido.' }}
+                {{
+                  serverError('email')
+                    || (form.get('email')?.errors?.['emailExists'] ? 'Este e-mail já está cadastrado.' : 'Email inválido.')
+                }}
               </div>
             </div>
 
@@ -351,6 +355,8 @@ function maxSelected(max: number) {
 export class ClienteFormComponent implements OnInit {
   form!: FormGroup;
   editingId: number | null = null;
+  originalEmail: string | null = null;
+
 
   loadingCep: boolean[] = [];
   indexEnderecoParaRemover: number | null = null;
@@ -408,13 +414,14 @@ export class ClienteFormComponent implements OnInit {
 
       this.svc.getById(id).subscribe({
         next: (c) => {
+          this.originalEmail = (c.email || '').trim().toLowerCase(); // <<<<<
           this.form.patchValue({
             nome: c.nome,
             email: c.email,
             telefone: c.telefone ?? '',
             cpf: this.maskCpf(c.cpf ?? ''),
             dataNascimento: c.dataNascimento ?? '',
-            modalidades: (c.modalidades ?? []).map(m => m.id), // ids para o select
+            modalidades: (c.modalidades ?? []).map(m => m.id),
           });
           (c.enderecos || []).forEach((e) => this.enderecos.push(this.buildEnderecoGroup(e)));
           if (this.enderecos.length === 0) this.addEndereco();
@@ -429,6 +436,50 @@ export class ClienteFormComponent implements OnInit {
       this.addEndereco();
     }
   }
+
+  emailAlreadyExists(event?: Event) {
+    const ctrl = this.form.get('email');
+    if (!ctrl) return;
+
+    const raw = (ctrl.value || '').toString().trim();
+    const normalized = raw.toLowerCase();
+
+    // não verifica se vazio ou inválido pelo validador de e-mail
+    if (!raw || ctrl.invalid) {
+      this.clearControlError(ctrl, 'emailExists');
+      return;
+    }
+
+    // em edição: se o valor atual é igual ao original (ignorando maiúsculas/minúsculas), não verifica
+    const unchanged = !!this.editingId && this.originalEmail === normalized;
+    if (unchanged) {
+      this.clearControlError(ctrl, 'emailExists'); // remove erro antigo, se houver
+      return;
+    }
+
+    // chama o backend
+    this.svc.checkEmailExists(normalized).subscribe({
+      next: (exists) => {
+        if (exists) {
+          ctrl.setErrors({ ...(ctrl.errors || {}), emailExists: true });
+          this.notify.warn('Este e-mail já está cadastrado.');
+        } else {
+          this.clearControlError(ctrl, 'emailExists');
+        }
+      },
+      error: () => this.notify.error('Erro ao verificar e-mail.')
+    });
+  }
+
+  private clearControlError(ctrl: AbstractControl | null, key: string) {
+    if (!ctrl) return;
+    const errs = ctrl.errors || {};
+    if (errs[key]) {
+      const { [key]: _removed, ...rest } = errs as Record<string, any>;
+      ctrl.setErrors(Object.keys(rest).length ? rest : null);
+    }
+  }
+
 
   ngOnDestroy(): void {
     this.subs.forEach((s) => s.unsubscribe());
