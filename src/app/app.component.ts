@@ -18,15 +18,15 @@ import { ToastsContainerComponent } from './shared/toast-container/toasts-contai
             [routerLink]="['/login']"
             >Entrar</a
           >
-          <button
-            *ngIf="loggedIn"
-            class="btn btn-outline-light"
-            (click)="logout()"
-          >
-            Sair
-          </button>
         </div>
       </div>
+      <button
+        *ngIf="loggedIn"
+        class="btn btn-outline-light"
+        (click)="logout()"
+      >
+        Sair
+      </button>
     </nav>
 
     <router-outlet></router-outlet>
@@ -53,6 +53,11 @@ import { ToastsContainerComponent } from './shared/toast-container/toasts-contai
       width: 100%;
       z-index: 1030; /* acima do conteúdo */
     }
+
+    .btn {
+      margin-right: 30px;
+    }
+
     main { padding-bottom: 50px; } /* evita que conteúdo esconda o footer */
   `]
 })
