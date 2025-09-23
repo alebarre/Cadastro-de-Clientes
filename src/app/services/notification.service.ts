@@ -31,7 +31,7 @@ export class NotificationService {
   info(text: string, delay = 4000) {
     this.show('info', text, delay);
   }
-  warn(text: string, delay = 4000) {
+  warn(text: string, delay = 5000) {
     this.show('warning', text, delay);
   }
 }
