@@ -1,3 +1,4 @@
+import { FormsModule } from '@angular/forms';
 import { Component, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
@@ -10,7 +11,7 @@ import { ClienteSummary } from '../../models/cliente.model';
 @Component({
   selector: 'app-clientes-list',
   standalone: true,
-  imports: [CommonModule, RouterLink, ConfirmDialogComponent],
+  imports: [CommonModule, FormsModule, RouterLink, ConfirmDialogComponent],
   styles: [
     `
     /* ===== Base ===== */
@@ -124,6 +125,35 @@ import { ClienteSummary } from '../../models/cliente.model';
           </tr>
         </tbody>
       </table>
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+      <div class="text-muted small">
+        Mostrando {{ page*size + 1 }}–{{ Math.min((page+1)*size, total) }} de {{ total }}
+      </div>
+
+      <div class="d-flex align-items-center gap-2">
+        <select class="form-select form-select-sm" style="width:auto"
+                [ngModel]="size" (ngModelChange)="changeSize($event)">
+          <option [ngValue]="10">10</option>
+          <option [ngValue]="20">20</option>
+          <option [ngValue]="50">50</option>
+        </select>
+
+        <nav aria-label="Clientes paginação">
+          <ul class="pagination pagination-sm mb-0">
+            <li class="page-item" [class.disabled]="page===0">
+              <button class="page-link" (click)="prev()">«</button>
+            </li>
+            <li class="page-item" *ngFor="let i of [].constructor(totalPages); let idx = index"
+                [class.active]="idx===page">
+              <button class="page-link" (click)="go(idx)">{{ idx+1 }}</button>
+            </li>
+            <li class="page-item" [class.disabled]="page+1>=totalPages">
+              <button class="page-link" (click)="next()">»</button>
+            </li>
+          </ul>
+        </nav>
+      </div>
+    </div>
     </div>
 
     <app-confirm-dialog #confirmDialog
@@ -136,8 +166,14 @@ import { ClienteSummary } from '../../models/cliente.model';
   `
 })
 export class ClientesListComponent {
-  clientes: ClienteSummary[] = [];
+  Math = Math;
   clienteSelecionado?: ClienteSummary;
+  clientes: ClienteSummary[] = [];
+  total = 0;
+  totalPages = 0;
+  page = 0;
+  size = 10;
+  q = '';
 
   @ViewChild(ConfirmDialogComponent) confirmDialog!: ConfirmDialogComponent;
 
@@ -150,6 +186,44 @@ export class ClientesListComponent {
   ngOnInit() {
     this.svc.clientes$.subscribe(list => this.clientes = list);
     this.svc.fetchAll().subscribe();
+    this.svc.page$.subscribe(p => {
+      this.clientes = p.content;
+      this.page = p.number;
+      this.size = p.size;
+      this.total = p.totalElements;
+      this.totalPages = p.totalPages;
+    });
+    this.load();
+  }
+
+  load() {
+    this.svc.fetchPage({ page: this.page, size: this.size, q: this.q, sort: 'nome', dir: 'asc' }).subscribe();
+  }
+
+  go(i: number) {
+    if (i < 0 || i >= this.totalPages) return;
+    this.page = i; this.load();
+  }
+  prev() {
+    if (this.page > 0) {
+      this.page--; this.load();
+    }
+  }
+
+  next() {
+    if (this.page + 1 < this.totalPages) {
+      this.page++; this.load();
+    }
+  }
+
+  changeSize(s: number) {
+    this.size = s;
+    this.page = 0;
+    this.load();
+  }
+
+  search(q: string) {
+    this.q = q.trim(); this.page = 0; this.load();
   }
 
   async pedirConfirmacaoExclusao(c: ClienteSummary) {

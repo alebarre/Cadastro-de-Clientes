@@ -1,15 +1,22 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { BehaviorSubject, map, Observable, tap } from 'rxjs';
 // Update the import path below if your environment file is located elsewhere
 import { environment } from '../../environments/environment';
 import { Cliente, ClienteCard, ClienteRequest, ClienteSummary, Modalidade } from '../models/cliente.model';
+import { PageResponse } from '../models/page.model';
 
 @Injectable({ providedIn: 'root' })
 export class ClienteService {
   private base = `${environment.apiUrl}/clientes`;
+
   private _clientes$ = new BehaviorSubject<ClienteSummary[]>([]);
   clientes$ = this._clientes$.asObservable();
+
+  private _page$ = new BehaviorSubject<PageResponse<ClienteSummary>>({
+    content: [], totalElements: 0, totalPages: 0, size: 10, number: 0, first: true, last: true, empty: true
+  });
+  page$ = this._page$.asObservable();
 
   constructor(private http: HttpClient) { }
   /** Modalidades (para o combo do formulário) */
@@ -39,6 +46,24 @@ export class ClienteService {
         enderecosResumo: item.enderecosResumo ?? this.joinCidades(item.cidades)
       } as ClienteSummary))),
       tap(list => this._clientes$.next(list))
+    );
+  }
+
+  fetchPage(opts: { page?: number; size?: number; q?: string; sort?: string; dir?: 'asc' | 'desc' } = {}):
+    Observable<PageResponse<ClienteSummary>> {
+    const { page = 0, size = 10, q = '', sort = 'nome', dir = 'asc' } = opts;
+    let params = new HttpParams()
+      .set('page', page)
+      .set('size', size)
+      .set('sort', sort)
+      .set('dir', dir);
+    if (q) params = params.set('q', q);
+
+    return this.http.get<PageResponse<ClienteSummary>>(this.base, { params }).pipe(
+      tap(res => {
+        this._page$.next(res);
+        this._clientes$.next(res.content); // mantém compat com assinantes antigos
+      })
     );
   }
 

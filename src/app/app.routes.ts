@@ -4,7 +4,6 @@ import { adminGuard } from './guards/admin.guard';
 import { LoginComponent } from './pages/login/login.component';
 import { RegisterComponent } from './pages/register/register.component';
 import { ForgotComponent } from './pages/forgot/forgot.component';
-import { ClientesReportComponent } from './pages/clientes-report/clientes-report.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -29,7 +28,7 @@ export const routes: Routes = [
       { path: 'usuarios', canActivate: [adminGuard], loadComponent: () => import('./pages/usuario-list/usuarios-list.component').then(m => m.UsuariosListComponent) },
       { path: 'usuarios/novo', canActivate: [adminGuard], loadComponent: () => import('./pages/usuario-form/usuarios-form.component').then(m => m.UsuariosFormComponent) },
       { path: 'usuarios/:id', canActivate: [adminGuard], loadComponent: () => import('./pages/usuario-form/usuarios-form.component').then(m => m.UsuariosFormComponent) },
-      { path: 'cobrancas', canActivate: [adminGuard], loadComponent: () => import('./pages/cobrancas/cobrancas.component').then(m => m.CobrancasComponent) },
+      { path: 'cobrancas', canActivate: [adminGuard], loadComponent: () => import('./pages/cobrancas/cobrancas.component').then(m => m.ClientesCobrancasComponent) },
 
       { path: 'login', component: LoginComponent },
       { path: 'register', component: RegisterComponent },
