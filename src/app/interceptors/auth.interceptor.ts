@@ -43,8 +43,8 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
               const newToken = auth.getToken();
               const retried = newToken
                 ? req.clone({
-                    setHeaders: { Authorization: `Bearer ${newToken}` },
-                  })
+                  setHeaders: { Authorization: `Bearer ${newToken}` },
+                })
                 : req;
               return next(retried);
             }),
@@ -67,17 +67,13 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
               const newToken = auth.getToken();
               const retried = newToken
                 ? req.clone({
-                    setHeaders: { Authorization: `Bearer ${newToken}` },
-                  })
+                  setHeaders: { Authorization: `Bearer ${newToken}` },
+                })
                 : req;
               return next(retried);
             })
           );
         }
-      }
-
-      if (err.status === 403) {
-        notify.warn('Ação não permitida para seu perfil.');
       }
       return throwError(() => err);
     })

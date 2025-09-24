@@ -175,6 +175,13 @@ export class LoginComponent implements OnInit, OnDestroy {
       error: (err: any) => {
         const status = err?.status;
 
+        // Falha no login sem resposta do back (timeout, CORS, rede, etc)
+        if (err.statusText === "Unknown Error") {
+          // não mostra msg do back, por segurança
+          this.notify.error('Falha no login! Tente novamente em alguns instantes');
+          return;
+        }
+
         // pode ser objeto, string ou indefinido
         const body = err?.error;
         const bodyObj = (body && typeof body === 'object') ? body : null;
