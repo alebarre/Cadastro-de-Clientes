@@ -67,9 +67,8 @@ import { Modalidade } from '../../models/cliente.model';
 
     <div class="card shadow-sm">
       <div class="card-body">
-        <p>Relatório de cobranças e clientes</p>
 
-        <div class="mb-3">
+        <div class="mb-5 mt-3">
           <label for="reportType" class="form-label me-2">Tipo de relatório:</label>
           <select id="reportType" class="form-select d-inline-block w-auto" [(ngModel)]="selectedReportType">
             <option value="cobrancas">Cobranças</option>
@@ -78,7 +77,7 @@ import { Modalidade } from '../../models/cliente.model';
         </div>
 
         <!-- Cobranças -->
-        <div class="mb-3" *ngIf="selectedReportType === 'cobrancas'">
+        <div class="mb-5" *ngIf="selectedReportType === 'cobrancas'">
           <div class="form-check form-check-inline">
             <input class="form-check-input" type="checkbox" id="cobrancasPagas" [(ngModel)]="cobrancasPagas" />
             <label class="form-check-label" for="cobrancasPagas">Cobranças pagas</label>
@@ -94,7 +93,7 @@ import { Modalidade } from '../../models/cliente.model';
         </div>
 
         <!-- Clientes -->
-        <div class="mb-3" *ngIf="selectedReportType === 'clientes'">
+        <div class="mb-5" *ngIf="selectedReportType === 'clientes'">
           <div class="form-check form-check-inline">
             <input class="form-check-input" type="checkbox" id="clientesAtivos" [(ngModel)]="clientesAtivos" />
             <label class="form-check-label" for="clientesAtivos">Clientes ativos</label>
@@ -135,7 +134,7 @@ import { Modalidade } from '../../models/cliente.model';
         </div>
 
         <!-- Seleção resumida -->
-        <div *ngIf="relatorioPreparado" class="selected-report-list mt-3">
+        <div *ngIf="relatorioPreparado" class="selected-report-list mt-3 mb-5">
           <h6>Itens selecionados para o relatório:</h6>
           <ul>
             <li *ngIf="selectedReportType === 'cobrancas'">
@@ -160,13 +159,13 @@ import { Modalidade } from '../../models/cliente.model';
               <!-- NOVO: faixa etária -->
               <ng-container *ngIf="clientesPorFaixaEtaria && faixaValida()">
                 <span class="selected-report-badge warning">
-                  Faixa etária: {{ faixaEtariaLabel() }}
+                  com faixa etária entre: {{ faixaEtariaLabel() }}
                 </span>
               </ng-container>
             </li>
 
             <ng-container *ngIf="clientesFiltro === 'porModalidade' && modalidadesSelecionadas.length">
-              <span class="fw-bold bg-body-secondary rounded-end-5">Por modalidade:&nbsp;</span>
+              <span class="fw-bold bg-body-secondary rounded p-1 m-2">inscritos em:</span>
               <span *ngFor="let modalidade of modalidadesSelecionadas"
                     class="selected-report-badge" style="background:#e83e8c;">
                 {{ modalidade }}
@@ -301,7 +300,7 @@ export class ClientesReportComponent {
     const hasMin = typeof min === 'number' && Number.isFinite(min) && min >= 0;
     const hasMax = typeof max === 'number' && Number.isFinite(max) && max >= 0;
 
-    if (hasMin && hasMax) return `${min}–${max} anos`;
+    if (hasMin && hasMax) return `${min} e ${max} anos`;
     if (hasMin && !hasMax) return `${min}+ anos`;
     if (!hasMin && hasMax) return `até ${max} anos`;
     return '';
