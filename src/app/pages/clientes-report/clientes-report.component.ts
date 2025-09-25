@@ -6,7 +6,7 @@ import { ConfirmDialogComponent } from '../../shared/confirm-dialog/confirm-dial
 import { NotificationService } from '../../services/notification.service';
 import { AuthService } from '../../services/auth.service';
 import { ClienteService } from '../../services/cliente.service';
-import { Modalidade } from '../../models/cliente.model';
+import { ClienteSummary, Modalidade } from '../../models/cliente.model';
 
 @Component({
   selector: 'app-report',
@@ -54,10 +54,12 @@ import { Modalidade } from '../../models/cliente.model';
       font-weight: 500;
       letter-spacing: 0.01em;
     }
-    .selected-report-badge.secondary { background: #6c757d; }
-    .selected-report-badge.success   { background: #198754; }
-    .selected-report-badge.warning   { background: #ffc107; color: #212529; }
-    .selected-report-badge.info      { background: #0dcaf0; color: #212529; }
+    .selected-report-badge.secondary { background: #8c925aff; }
+    .selected-report-badge.success   { background: #606726ff; }
+    .selected-report-badge.warning   { background: #f6e3aaff; color: #212529; }
+    .selected-report-badge.info      { background: #dce708ff; color: #212529; }
+    .selected-report-badge.selected-mod   { background: #d4cb65ff; color: #000000ff;}
+    .selected-report.selected-mod-label { color: #000000ff; border-radius: 12px; margin-right: 5px; font-weight: 600; }
   `],
   template: `
   <div class="container-xxl py-3">
@@ -127,9 +129,12 @@ import { Modalidade } from '../../models/cliente.model';
           <div *ngIf="clientesFiltro === 'porModalidade'" class="mt-2">
             <label for="modalidadesSelect" class="form-label me-2">Escolha as modalidades:</label>
             <select id="modalidadesSelect" class="form-select d-inline-block w-auto" multiple
-                    [(ngModel)]="modalidadesSelecionadas">
-              <option *ngFor="let modalidade of modalidadesDisponiveis" [value]="modalidade">{{ modalidade }}</option>
-            </select>
+                  [(ngModel)]="modalidadesSelecionadas">
+              <option *ngFor="let modalidade of modalidadesDisponiveis"
+                    [value]="modalidade.id">
+                    {{ modalidade.nome }} — {{ modalidade.descricao }}
+              </option>
+          </select>
           </div>
         </div>
 
@@ -165,10 +170,9 @@ import { Modalidade } from '../../models/cliente.model';
             </li>
 
             <ng-container *ngIf="clientesFiltro === 'porModalidade' && modalidadesSelecionadas.length">
-              <span class="fw-bold bg-body-secondary rounded p-1 m-2">inscritos em:</span>
-              <span *ngFor="let modalidade of modalidadesSelecionadas"
-                    class="selected-report-badge" style="background:#e83e8c;">
-                {{ modalidade }}
+              <span class="selected-report selected-mod-label">inscritos em:</span>
+              <span *ngFor="let m of selecionadas()" class="selected-report-badge selected-mod">
+                {{ m.nome }}
               </span>
             </ng-container>
           </ul>
@@ -187,13 +191,49 @@ import { Modalidade } from '../../models/cliente.model';
     </div>
 
     <div class="card shadow-sm mt-3">
-      <div class="card-body"></div>
+      <div class="card-body">
+        <!-- loading -->
+        <div class="mt-3" *ngIf="loading">
+          <span class="spinner-border spinner-border-sm me-2"></span> Carregando…
+        </div>
+
+        <!-- resultado clientes -->
+        <div class="table-responsive" *ngIf="!loading && selectedReportType==='clientes' && resultado.length">
+          <table class="table table-striped align-middle">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Email</th>
+                <th>Telefone</th>
+                <th class="text-center"># Modalidades</th>
+                <th>Cidades</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let c of resultado">
+                <td class="text-truncate">{{ c.nome }}</td>
+                <td class="text-truncate">{{ c.email }}</td>
+                <td>{{ c.telefone || '-' }}</td>
+                <td class="text-center">{{ c.quantidadeModalidades }}</td>
+                <td class="text-truncate">{{ c.enderecosResumo || (c.cidades?.join(' | ') || '-') }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="text-muted" *ngIf="!loading && selectedReportType==='clientes' && !resultado.length && relatorioPreparado">
+          Nenhum cliente encontrado com os filtros informados.
+        </div>
+
+      </div>
     </div>
   </div>
   `
 })
 export class ClientesReportComponent {
   usuarios: UsuarioSummary[] = [];
+  resultado: ClienteSummary[] = [];
+  loading = false;
 
   selectedReportType: string = 'cobrancas';
 
@@ -213,8 +253,8 @@ export class ClientesReportComponent {
 
   // Modalidades
   clientesFiltro = '';
-  modalidadesSelecionadas: string[] = [];
-  modalidadesDisponiveis: string[] = [];
+  modalidadesSelecionadas: number[] = [];
+  modalidadesDisponiveis: Modalidade[] = [];
 
   @ViewChild(ConfirmDialogComponent) confirmDialog!: ConfirmDialogComponent;
   relatorioPreparado = false;
@@ -248,38 +288,66 @@ export class ClientesReportComponent {
   }
 
   confirmarRelatorio() {
-    this.notify.success('Relatório confirmado!');
+    if (this.selectedReportType !== 'clientes') {
+      this.notify.success('Relatório confirmado!');
+      return;
+    }
+
+    // precisa ter algo selecionado
+    const byModalidade = this.clientesFiltro === 'porModalidade' && this.modalidadesSelecionadas.length > 0;
+    const byFaixa = this.clientesPorFaixaEtaria && this.faixaValida();
+    const temFiltros = this.clientesAtivos || this.clientesInativos || byModalidade || byFaixa;
+
+    if (!temFiltros) {
+      this.notify.warn('Selecione ao menos um filtro de clientes.');
+      return;
+    }
+
+    this.loading = true;
+    this.svc.reportClientes({
+      ativos: this.clientesAtivos ? true : undefined,
+      inativos: this.clientesInativos ? true : undefined,
+      idadeMin: byFaixa ? this.faixaEtariaInicial ?? undefined : undefined,
+      idadeMax: byFaixa ? this.faixaEtariaFinal ?? undefined : undefined,
+      modalidadeIds: byModalidade ? this.modalidadesSelecionadas : undefined
+    }).subscribe({
+      next: list => {
+        this.resultado = list ?? [];
+        if (!this.resultado.length) this.notify.warn('Nenhum cliente encontrado com os filtros informados.');
+        else this.notify.success('Relatório de clientes pronto!');
+      },
+      error: () => this.notify.error('Falha ao buscar relatório de clientes.'),
+    }).add(() => this.loading = false);
   }
+
 
   limparTodosFiltros() {
     this.selectedReportType = 'cobrancas';
-    // cobranças
-    this.cobrancasPagas = false;
-    this.cobrancasFeitas = false;
-    this.cobrancasPagasMes = false;
-    // clientes
-    this.clientesAtivos = false;
-    this.clientesInativos = false;
-    // faixa etária
+    this.cobrancasPagas = this.cobrancasFeitas = this.cobrancasPagasMes = false;
+    this.clientesAtivos = this.clientesInativos = false;
     this.clientesPorFaixaEtaria = false;
-    this.faixaEtariaInicial = null;
-    this.faixaEtariaFinal = null;
-    // modalidades
+    this.faixaEtariaInicial = this.faixaEtariaFinal = null;
     this.clientesFiltro = '';
     this.modalidadesSelecionadas = [];
-    // estado
     this.relatorioPreparado = false;
+    this.resultado = [];
   }
+
 
   // ====== MODALIDADES ======
   private loadModalidades() {
     this.svc.getModalidades().subscribe({
-      next: (list: Modalidade[]) => (this.modalidadesDisponiveis = (list ?? []).map(m => m.descricao)),
+      next: (list: Modalidade[]) => this.modalidadesDisponiveis = list ?? [],
       error: () => {
         this.notify.error('Falha ao carregar modalidades.');
         this.modalidadesDisponiveis = [];
       },
     });
+  }
+
+  selecionadas() {
+    const set = new Set(this.modalidadesSelecionadas);
+    return this.modalidadesDisponiveis.filter(m => set.has(m.id));
   }
 
   // ====== Faixa etária helpers ======

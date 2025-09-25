@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { BehaviorSubject, map, Observable, tap } from 'rxjs';
-// Update the import path below if your environment file is located elsewhere
 import { environment } from '../../environments/environment';
 import { Cliente, ClienteCard, ClienteRequest, ClienteSummary, Modalidade } from '../models/cliente.model';
 import { PageResponse } from '../models/page.model';
@@ -9,6 +8,7 @@ import { PageResponse } from '../models/page.model';
 @Injectable({ providedIn: 'root' })
 export class ClienteService {
   private base = `${environment.apiUrl}/clientes`;
+  private baseReport = `${environment.apiUrl}/relatorios/clientes`;
 
   private _clientes$ = new BehaviorSubject<ClienteSummary[]>([]);
   clientes$ = this._clientes$.asObservable();
@@ -110,6 +110,27 @@ export class ClienteService {
       .delete<void>(`${this.base}/${id}`)
       .pipe(tap(() => this.fetchAll().subscribe()));
   }
+
+  // Montar queries para relatórios e enviar ao backend
+  reportClientes(filters: {
+    ativos?: boolean;
+    inativos?: boolean;
+    idadeMin?: number;
+    idadeMax?: number;
+    modalidadeIds?: number[];
+  }) {
+    const params: any = {};
+    if (filters.ativos) params.ativos = 'true';
+    if (filters.inativos) params.inativos = 'true';
+    if (filters.idadeMin != null) params.idadeMin = String(filters.idadeMin);
+    if (filters.idadeMax != null) params.idadeMax = String(filters.idadeMax);
+    if (filters.modalidadeIds?.length) params.modalidades = filters.modalidadeIds.join(',');
+
+    // Backend publica em /api/relatorios/clientes
+    const baseUrl = this.base.replace(/\/$/, '');
+    return this.http.get<ClienteSummary[]>(`${this.baseReport}`, { params });
+  }
+
 
 
   /** Converte Cliente -> ClienteRequest (quando não vier pronto) */
