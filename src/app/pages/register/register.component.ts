@@ -80,10 +80,15 @@ import { MaskDirective } from '../../services/mask.directives';
             <div class="invalid-feedback">As senhas não coincidem.</div>
           </div>
 
-          <button class="btn btn-primary w-100" type="submit" [disabled]="loading">
-            <span *ngIf="loading" class="spinner-border spinner-border-sm me-2"></span>
-            Registrar
-          </button>
+          <div class="d-flex gap-2 mb-2">
+            <button class="btn btn-primary" style="flex-basis:70%;" type="submit" [disabled]="loading">
+              <span *ngIf="loading" class="spinner-border spinner-border-sm me-2"></span>
+              Registrar
+            </button>
+            <button class="btn btn-outline-secondary" style="flex-basis:30%;" type="button" [routerLink]="['/login']" [disabled]="loading">
+              Voltar ao login
+            </button>
+          </div>
         </form>
 
         <!-- Fase 2: Verificação -->
