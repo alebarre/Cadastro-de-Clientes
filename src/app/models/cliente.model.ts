@@ -20,6 +20,7 @@ export interface Modalidade {
 export interface Cliente {
   id?: number;
   nome: string;
+  enabled: boolean;
   email: string;
   telefone?: string | null;
   cpf?: string | null;
@@ -42,6 +43,7 @@ export interface ClienteRequest {
 export interface ClienteSummary {
   id: number;
   nome: string;
+  enabled: boolean;
   email: string;
   telefone?: string | null;
   dataNascimento?: string | null; // ISO string

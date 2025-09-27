@@ -89,6 +89,7 @@ import { ClienteSummary } from '../../models/cliente.model';
         <thead>
           <tr>
             <th scope="col" class="col-nome">Nome</th>
+            <th scope="col" class="col-status">Status</th>
             <th scope="col" class="col-email">Email</th>
             <th scope="col" class="col-telefone">Telefone</th>
             <th scope="col" class="col-endereco d-none d-xl-table-cell">Endereços (cidades)</th>
@@ -99,6 +100,14 @@ import { ClienteSummary } from '../../models/cliente.model';
         <tbody>
           <tr *ngFor="let c of clientes">
             <td class="col-nome">{{ c.nome }}</td>
+            <td class="col-status">
+              <span
+                class="badge"
+                [ngClass]="c.enabled ? 'bg-success-subtle text-success-emphasis' : 'bg-secondary-subtle text-secondary-emphasis'"
+              >
+                {{ c.enabled ? 'Ativo' : 'Inativo' }}
+              </span>
+            </td>
             <td class="col-email">{{ c.email }}</td>
             <td class="col-telefone">{{ c.telefone || '-' }}</td>
             <td class="col-endereco d-none d-xl-table-cell">{{ c.enderecosResumo || '-' }}</td>

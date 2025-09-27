@@ -10,6 +10,7 @@ import {
   AbstractControl,
   ValidationErrors,
   FormControl,
+  FormsModule,
 } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Cliente, Endereco, Modalidade } from '../../models/cliente.model';
@@ -34,6 +35,7 @@ function maxSelected(max: number) {
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     ReactiveFormsModule,
     RouterLink,
     ConfirmDialogComponent,
@@ -48,7 +50,7 @@ function maxSelected(max: number) {
 
         <form [formGroup]="form" (ngSubmit)="salvar()" novalidate>
           <div class="row g-3">
-            <div class="col-12 col-md-8">
+            <div class="col-12 col-md-6">
               <label class="form-label">Nome</label>
               <input
                 class="form-control"
@@ -59,6 +61,14 @@ function maxSelected(max: number) {
                 {{ serverError('nome') || 'Informe um nome com ao menos 3 caracteres.' }}
               </div>
             </div>
+            <div class="col-12 col-md-2">
+              <label class="form-label">Status</label>
+              <select class="form-select" [ngClass]="{ 'is-invalid': isInvalid('enabled') }" formControlName="enabled">
+                <option [ngValue]="true">Ativo</option>
+                <option [ngValue]="false">Inativo</option>
+              </select>
+            </div>
+
 
             <div class="col-12 col-md-4">
               <label class="form-label">Data de nascimento</label>
@@ -417,6 +427,7 @@ export class ClienteFormComponent implements OnInit {
           this.originalEmail = (c.email || '').trim().toLowerCase(); // <<<<<
           this.form.patchValue({
             nome: c.nome,
+            enabled: c.enabled,
             email: c.email,
             telefone: c.telefone ?? '',
             cpf: this.maskCpf(c.cpf ?? ''),
@@ -489,6 +500,7 @@ export class ClienteFormComponent implements OnInit {
   buildForm() {
     this.form = this.fb.group({
       nome: ['', [Validators.required, Validators.minLength(3)]],
+      enabled: [true, [Validators.required]],
       email: ['', [Validators.required, Validators.email]],
       telefone: ['', [Validators.pattern(/^\d{10,11}$/)]],
       cpf: ['', [this.cpfValidator]],

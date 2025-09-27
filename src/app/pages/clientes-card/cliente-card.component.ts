@@ -34,9 +34,15 @@ import { AuthService } from '../../services/auth.service';
     <!-- card -->
     <div class="card shadow-sm">
       <div class="card-header bg-light">
-        <strong class="d-block text-truncate" style="font-size: 1.5rem;">{{ cliente.nome }}</strong>
-
-          <h6>Atleta inscrito em {{ cliente.modalidades?.length }} modalidade(s) e com {{ cliente.enderecos.length }} endereço(s) cadastrado(s).</h6>
+        <strong class="d-block text-truncate" style="font-size: 1.5rem;">{{ cliente.nome }}  |
+          <span
+                class="badge"
+                [ngClass]="cliente.enabled ? 'bg-success-subtle text-success-emphasis' : 'bg-secondary-subtle text-secondary-emphasis'"
+              >
+                {{ cliente.enabled ? 'Ativo' : 'Inativo' }}
+          </span>
+        </strong>
+        <h6>Atleta inscrito em {{ cliente.modalidades?.length }} modalidade(s) e com {{ cliente.enderecos.length }} endereço(s) cadastrado(s).</h6>
       </div>
 
       <div class="card-body">
