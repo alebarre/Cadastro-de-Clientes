@@ -5,7 +5,13 @@ import { Router } from '@angular/router';
 import { environment } from '../../environments/environment';
 
 interface AuthRegisterResponse { message: string };
-interface AuthResponse { accessToken: string; expiresIn: number; username: string; refreshToken: string; };
+interface AuthResponse {
+  accessToken: string;
+  expiresIn: number;
+  username: string;
+  refreshToken: string;
+  nome?: string;
+};
 interface RefreshResponse { accessToken: string; expiresIn: number; refreshToken: string; };
 
 @Injectable({ providedIn: 'root' })
@@ -20,11 +26,15 @@ export class AuthService {
   constructor() {
   }
 
+  getNameOfTheUser(): string {
+    return localStorage.getItem('nome') || '';
+  }
+
   // ===== Auth core =====
   login(username: string, password: string) {
     return this.http.post<AuthResponse>(`${this.base}/login`, { username, password }).pipe(
       tap(res => {
-        this.applyTokens(res.accessToken, res.expiresIn, res.username, res.refreshToken);
+        this.applyTokens(res.accessToken, res.expiresIn, res.username, res.refreshToken, res.nome);
         const redirect = sessionStorage.getItem('redirect_after_login');
         if (redirect) {
           sessionStorage.removeItem('redirect_after_login');
@@ -99,12 +109,13 @@ export class AuthService {
     } catch { return []; }
   }
 
-  private applyTokens(accessToken: string, expiresIn: number, username: string, refreshToken: string) {
+  private applyTokens(accessToken: string, expiresIn: number, username: string, refreshToken: string, nome: string = '') {
     const expMs = Date.now() + expiresIn * 1000;
     localStorage.setItem('access_token', accessToken);
     localStorage.setItem('token_exp', String(expMs));
     localStorage.setItem('username', username);
     localStorage.setItem('refresh_token', refreshToken);
+    localStorage.setItem('nome', nome);
     this._loggedIn$.next(true);
   }
 }

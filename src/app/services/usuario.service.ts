@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { BehaviorSubject, Observable, of, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { Usuario, UsuarioRequest, UsuarioSummary } from '../models/usuario.model';
 
@@ -22,6 +22,11 @@ export class UsuarioService {
 
   getById(id: number | string): Observable<Usuario> {
     return this.http.get<Usuario>(`${this.base}/${id}`);
+  }
+
+  getLoggedUser(): Observable<Usuario | null> {
+    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    return of(user);
   }
 
   create(body: UsuarioRequest): Observable<Usuario> {
